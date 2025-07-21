@@ -1,0 +1,12 @@
+<?php
+require_once __DIR__ . '/../auth/session.php';
+$userData = SessionManager::getUserData();
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo $title ?? 'Sistema de Ventas'; ?></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>

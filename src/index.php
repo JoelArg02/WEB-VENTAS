@@ -1,0 +1,13 @@
+<?php
+require_once 'auth/session.php';
+
+// Si está logueado, redirigir al dashboard
+if (SessionManager::isLoggedIn()) {
+    header('Location: dashboard_functional.php');
+    exit();
+}
+
+// Si no está logueado, redirigir al login
+header('Location: auth/login.php');
+exit();
+?>
