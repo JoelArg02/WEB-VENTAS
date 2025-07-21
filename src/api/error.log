@@ -1,0 +1,35 @@
+[21-Jul-2025 23:59:03 UTC] PHP Fatal error:  Uncaught Error: PDOStatement::bindParam(): Argument #2 ($var) cannot be passed by reference in /var/www/html/models/UserManager.php:144
+Stack trace:
+#0 /var/www/html/api/users.php(150): UserManager->updateUser('10', Array)
+#1 {main}
+  thrown in /var/www/html/models/UserManager.php on line 144
+[21-Jul-2025 23:59:03 UTC] PHP Fatal error:  Uncaught Error: PDOStatement::bindParam(): Argument #2 ($var) cannot be passed by reference in /var/www/html/models/UserManager.php:144
+Stack trace:
+#0 /var/www/html/api/users.php(150): UserManager->updateUser('10', Array)
+#1 {main}
+  thrown in /var/www/html/models/UserManager.php on line 144
+[21-Jul-2025 23:59:03 UTC] PHP Fatal error:  Uncaught Error: PDOStatement::bindParam(): Argument #2 ($var) cannot be passed by reference in /var/www/html/models/UserManager.php:144
+Stack trace:
+#0 /var/www/html/api/users.php(150): UserManager->updateUser('10', Array)
+#1 {main}
+  thrown in /var/www/html/models/UserManager.php on line 144
+[21-Jul-2025 23:59:03 UTC] PHP Fatal error:  Uncaught Error: PDOStatement::bindParam(): Argument #2 ($var) cannot be passed by reference in /var/www/html/models/UserManager.php:144
+Stack trace:
+#0 /var/www/html/api/users.php(150): UserManager->updateUser('10', Array)
+#1 {main}
+  thrown in /var/www/html/models/UserManager.php on line 144
+[21-Jul-2025 23:59:03 UTC] PHP Fatal error:  Uncaught Error: PDOStatement::bindParam(): Argument #2 ($var) cannot be passed by reference in /var/www/html/models/UserManager.php:144
+Stack trace:
+#0 /var/www/html/api/users.php(150): UserManager->updateUser('10', Array)
+#1 {main}
+  thrown in /var/www/html/models/UserManager.php on line 144
+[21-Jul-2025 23:59:04 UTC] PHP Fatal error:  Uncaught Error: PDOStatement::bindParam(): Argument #2 ($var) cannot be passed by reference in /var/www/html/models/UserManager.php:144
+Stack trace:
+#0 /var/www/html/api/users.php(150): UserManager->updateUser('10', Array)
+#1 {main}
+  thrown in /var/www/html/models/UserManager.php on line 144
+[21-Jul-2025 23:59:04 UTC] PHP Fatal error:  Uncaught Error: PDOStatement::bindParam(): Argument #2 ($var) cannot be passed by reference in /var/www/html/models/UserManager.php:144
+Stack trace:
+#0 /var/www/html/api/users.php(150): UserManager->updateUser('10', Array)
+#1 {main}
+  thrown in /var/www/html/models/UserManager.php on line 144

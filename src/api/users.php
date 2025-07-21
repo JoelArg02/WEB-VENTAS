@@ -1,11 +1,10 @@
 <?php
-error_reporting(0);
+// Deshabilitar la visualización de errores para evitar HTML en la respuesta JSON
+error_reporting(E_ALL);
 ini_set('display_errors', 0);
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+ini_set('display_startup_errors', 0);
 ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/error.log');
-error_reporting(E_ALL);
 
 require_once '../auth/session.php';
 require_once '../auth/permissions.php';
@@ -14,25 +13,43 @@ require_once '../models/UserManager.php';
 SessionManager::requireLogin();
 $userData = SessionManager::getUserData();
 
-
+// Limpiar cualquier output buffer que pueda contener HTML
 while (ob_get_level()) {
     ob_end_clean();
 }
 
-header('Content-Type: application/json');
-header('Cache-Control: no-cache');
+// Establecer headers antes de cualquier output
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         PermissionManager::requirePermission($userData['role'], 'users');
 
         $userManager = new UserManager();
-        $users = $userManager->getAllUsers();
-
-        echo json_encode([
-            'success' => true,
-            'data' => $users
-        ]);
+        
+        // Si se proporciona un ID, devolver un usuario específico
+        if (isset($_GET['id'])) {
+            $id = $_GET['id'];
+            try {
+                $user = $userManager->getUserById($id);
+                echo json_encode([
+                    'success' => true,
+                    'data' => $user
+                ]);
+            } catch (Exception $e) {
+                throw new Exception('Usuario no encontrado');
+            }
+        } else {
+            // Si no hay ID, devolver todos los usuarios
+            $users = $userManager->getAllUsers();
+            echo json_encode([
+                'success' => true,
+                'data' => $users
+            ]);
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
         PermissionManager::requirePermission($userData['role'], 'create_user');
 
@@ -123,13 +140,23 @@ try {
             throw new Exception('ID de usuario requerido');
         }
 
+        if (!$input) {
+            throw new Exception('No se recibieron datos válidos');
+        }
+
         $userManager = new UserManager();
+        
+        // Intentar actualizar directamente
         $result = $userManager->updateUser($id, $input);
 
-        echo json_encode([
-            'success' => $result,
-            'message' => $result ? 'Usuario actualizado exitosamente' : 'Error al actualizar usuario'
-        ]);
+        if ($result) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Usuario actualizado exitosamente'
+            ]);
+        } else {
+            throw new Exception('Error al actualizar usuario');
+        }
     } elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         PermissionManager::requirePermission($userData['role'], 'delete_user');
 
@@ -150,9 +177,24 @@ try {
         throw new Exception('Método no permitido');
     }
 } catch (Exception $e) {
+    // Registrar el error en el log
+    error_log("API users.php error: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
+    
+    // Limpiar cualquier output buffer que pueda haber contenido HTML de errores
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Asegurar que enviamos JSON válido
     http_response_code(400);
-    echo json_encode([
+    
+    // Crear respuesta de error limpia
+    $errorResponse = [
         'success' => false,
         'message' => $e->getMessage()
-    ]);
+    ];
+    
+    echo json_encode($errorResponse, JSON_UNESCAPED_UNICODE);
+    exit;
 }

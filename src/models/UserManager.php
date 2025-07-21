@@ -38,6 +38,24 @@ class UserManager {
         }
     }
     
+    public function getUserById($id) {
+        try {
+            $query = "SELECT id, name, email, phone, role, status, reason FROM users WHERE id = :id";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':id', $id);
+            $stmt->execute();
+            $result = $stmt->fetch();
+            
+            if (!$result) {
+                throw new Exception('Usuario no encontrado');
+            }
+            
+            return $result;
+        } catch (Exception $e) {
+            throw new Exception('Error al buscar usuario: ' . $e->getMessage());
+        }
+    }
+    
     public function createUser($data) {
         try {
             // Verificar que la conexión esté activa
@@ -109,16 +127,31 @@ class UserManager {
     
     public function updateUser($id, $data) {
         try {
+            // Convertir status de string a número si es necesario
+            $status = $data['status'];
+            if ($status === 'active') {
+                $status = 1;
+            } elseif ($status === 'inactive') {
+                $status = 0;
+            }
+            
+            // Preparar variables para bindParam (deben ser variables, no expresiones)
+            $name = $data['name'];
+            $email = $data['email'];
+            $phone = $data['phone'] ?? null;
+            $role = $data['role'];
+            $reason = $data['reason'] ?? null;
+            
             $query = "UPDATE users SET name = :name, email = :email, phone = :phone, role = :role, status = :status, reason = :reason WHERE id = :id";
             
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(':id', $id);
-            $stmt->bindParam(':name', $data['name']);
-            $stmt->bindParam(':email', $data['email']);
-            $stmt->bindParam(':phone', $data['phone'] ?? null);
-            $stmt->bindParam(':role', $data['role']);
-            $stmt->bindParam(':status', $data['status']);
-            $stmt->bindParam(':reason', $data['reason'] ?? null);
+            $stmt->bindParam(':name', $name);
+            $stmt->bindParam(':email', $email);
+            $stmt->bindParam(':phone', $phone);
+            $stmt->bindParam(':role', $role);
+            $stmt->bindParam(':status', $status);
+            $stmt->bindParam(':reason', $reason);
             
             return $stmt->execute();
         } catch (Exception $e) {
