@@ -52,3 +52,14 @@ INSERT INTO users (name, email, phone, password, role, status) VALUES
 ('Juan Pérez', 'juan@test.com', '1234567891', '$2y$10$L1.KGidJUaVfpp5sBVDV6OPt4rtC/Bv0VxmOZ5NQju4adGxRGkpv.', 'vendedor', 1),
 ('María García', 'maria@test.com', '1234567892', '$2y$10$L1.KGidJUaVfpp5sBVDV6OPt4rtC/Bv0VxmOZ5NQju4adGxRGkpv.', 'bodega', 1),
 ('Carlos López', 'carlos@test.com', '1234567893', '$2y$10$L1.KGidJUaVfpp5sBVDV6OPt4rtC/Bv0VxmOZ5NQju4adGxRGkpv.', 'vendedor', 1);
+
+-- Insertar categorías de ejemplo
+INSERT INTO categories (name, status) VALUES
+('Bebidas', 1),
+('Comida', 1),
+('Snacks', 1),
+('Lácteos', 1),
+('Panadería', 1),
+('Limpieza', 1),
+('Cuidado Personal', 1),
+('Electrodomésticos', 1);

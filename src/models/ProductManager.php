@@ -61,19 +61,64 @@ class ProductManager {
     
     public function createProduct($data) {
         try {
+            // Verificar que la conexión esté activa
+            if (!$this->conn) {
+                throw new Exception('No hay conexión a la base de datos');
+            }
+            
             $query = "INSERT INTO products (name, price, stock, image, category_id, status, expiration_date) 
                      VALUES (:name, :price, :stock, :image, :category_id, :status, :expiration_date)";
             
             $stmt = $this->conn->prepare($query);
+            
+            if (!$stmt) {
+                throw new Exception('Error al preparar la consulta SQL: ' . implode(', ', $this->conn->errorInfo()));
+            }
+            
+            $image = isset($data['image']) && !empty($data['image']) ? $data['image'] : null;
+            $status = isset($data['status']) ? $data['status'] : 1;
+            $expiration_date = isset($data['expiry_date']) && !empty($data['expiry_date']) ? $data['expiry_date'] : null;
+            
             $stmt->bindParam(':name', $data['name']);
             $stmt->bindParam(':price', $data['price']);
             $stmt->bindParam(':stock', $data['stock']);
-            $stmt->bindParam(':image', $data['image'] ?? null);
+            $stmt->bindParam(':image', $image);
             $stmt->bindParam(':category_id', $data['category_id']);
-            $stmt->bindParam(':status', $data['status'] ?? 1);
-            $stmt->bindParam(':expiration_date', $data['expiration_date'] ?? null);
+            $stmt->bindParam(':status', $status);
+            $stmt->bindParam(':expiration_date', $expiration_date);
             
-            return $stmt->execute();
+            $result = $stmt->execute();
+            
+            if (!$result) {
+                $errorInfo = $stmt->errorInfo();
+                throw new Exception('Error al ejecutar la consulta: ' . $errorInfo[2]);
+            }
+            
+            return $result;
+        } catch (PDOException $e) {
+            $errorCode = $e->getCode();
+            $errorMessage = $e->getMessage();
+            
+            // Errores específicos de MySQL/PDO
+            if ($errorCode == 23000 && strpos($errorMessage, 'Duplicate entry') !== false) {
+                if (strpos($errorMessage, 'name') !== false) {
+                    throw new Exception('Ya existe un producto con este nombre');
+                } else {
+                    throw new Exception('Ya existe un registro con esos datos');
+                }
+            } elseif ($errorCode == 22001) {
+                throw new Exception('Uno de los campos excede la longitud máxima permitida');
+            } elseif ($errorCode == 23502) {
+                throw new Exception('Falta información requerida (campo nulo)');
+            } elseif (strpos($errorMessage, 'Unknown column') !== false) {
+                throw new Exception('Error en la estructura de la base de datos');
+            } elseif (strpos($errorMessage, 'Table') !== false && strpos($errorMessage, "doesn't exist") !== false) {
+                throw new Exception('La tabla de productos no existe en la base de datos');
+            } elseif ($errorCode == 23503) {
+                throw new Exception('La categoría seleccionada no existe o no es válida');
+            } else {
+                throw new Exception('Error de base de datos [' . $errorCode . ']: ' . $errorMessage);
+            }
         } catch (Exception $e) {
             throw new Exception('Error al crear producto: ' . $e->getMessage());
         }

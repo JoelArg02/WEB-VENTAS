@@ -32,6 +32,7 @@ class ProductsComponent {
                     <table class="min-w-full bg-white">
                         <thead class="bg-gray-50">
                             <tr>
+                                <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Imagen</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Nombre</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Precio</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Stock</th>
@@ -74,9 +75,22 @@ class ProductsComponent {
                 products.forEach(product => {
                     const stockClass = product.stock <= 10 ? 'text-red-600 font-semibold' : 'text-gray-900';
                     
+                    // Generar imagen
+                    let imageHtml = '';
+                    if (product.image && product.image.trim()) {
+                        imageHtml = `<img src="${product.image}" class="h-12 w-12 rounded-lg object-cover border" alt="${product.name}">`;
+                    } else {
+                        imageHtml = `<div class="h-12 w-12 rounded-lg bg-gray-200 flex items-center justify-center border">
+                                        <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                        </svg>
+                                     </div>`;
+                    }
+                    
                     html += `
                         <tr class="hover:bg-gray-50">
-                            <td class="px-4 py-2 text-sm text-gray-900">${product.name}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${imageHtml}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 font-medium">${product.name}</td>
                             <td class="px-4 py-2 text-sm text-gray-900">${formatCurrency(product.price)}</td>
                             <td class="px-4 py-2 text-sm ${stockClass}">${product.stock}</td>
                             <td class="px-4 py-2 text-sm text-gray-900">${product.category_name || 'Sin categoría'}</td>`;
