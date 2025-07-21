@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     PermissionManager::requirePermission($userData['role'], 'edit_category');
     
     $input = json_decode(file_get_contents('php://input'), true);
-    $id = $input['id'] ?? null;
+    $id = $input['id'] ?? $_GET['id'] ?? null;
     
     if (!$id) {
         echo json_encode(['success' => false, 'message' => 'ID de categoría requerido']);

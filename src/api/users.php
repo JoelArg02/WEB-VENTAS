@@ -117,7 +117,7 @@ try {
         PermissionManager::requirePermission($userData['role'], 'edit_user');
 
         $input = json_decode(file_get_contents('php://input'), true);
-        $id = $input['id'] ?? null;
+        $id = $input['id'] ?? $_GET['id'] ?? null;
 
         if (!$id) {
             throw new Exception('ID de usuario requerido');

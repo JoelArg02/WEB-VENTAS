@@ -81,8 +81,8 @@ try {
             $date = DateTime::createFromFormat('Y-m-d', $input['expiry_date']);
             if (!$date || $date->format('Y-m-d') !== $input['expiry_date']) {
                 $errors[] = 'El formato de fecha de vencimiento no es válido';
-            } elseif ($date <= new DateTime()) {
-                $errors[] = 'La fecha de vencimiento debe ser posterior a hoy';
+            } elseif ($date < new DateTime('today')) {
+                $errors[] = 'La fecha de vencimiento no puede ser anterior a hoy';
             }
         }
         
@@ -106,7 +106,7 @@ try {
         PermissionManager::requirePermission($userData['role'], 'edit_product');
         
         $input = json_decode(file_get_contents('php://input'), true);
-        $id = $input['id'] ?? null;
+        $id = $input['id'] ?? $_GET['id'] ?? null;
         
         if (!$id) {
             throw new Exception('ID de producto requerido');
