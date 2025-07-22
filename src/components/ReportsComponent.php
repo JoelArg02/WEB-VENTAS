@@ -28,7 +28,6 @@ class ReportsComponent {
         ob_start();
         ?>
         <div class="space-y-6">
-            <!-- Header del módulo de reportes -->
             <div class="bg-white rounded-lg shadow-sm border p-6">
                 <div class="flex justify-between items-center">
                     <div>
@@ -56,44 +55,9 @@ class ReportsComponent {
                 </div>
             </div>
             
-            <!-- Filtros y controles -->
             <div class="bg-white rounded-lg shadow-sm border p-6">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <!-- Tipo de reporte -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Reporte</label>
-                        <select id="reportType" onchange="changeReportType()" 
-                                class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                            <option value="sales">Ventas</option>
-                            <option value="products">Productos</option>
-                            <option value="inventory">Inventario</option>
-                            <option value="categories">Categorías</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Fecha desde -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Desde</label>
-                        <input type="date" id="dateFrom" onchange="applyFilters()" 
-                               class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    
-                    <!-- Fecha hasta -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Hasta</label>
-                        <input type="date" id="dateTo" onchange="applyFilters()" 
-                               class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    
-                    <!-- Categoría (solo para reportes relevantes) -->
-                    <div id="categoryFilter" class="hidden">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
-                        <select id="categoryId" onchange="applyFilters()" 
-                                class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                            <option value="">Todas las categorías</option>
-                        </select>
-                    </div>
-                </div>
+                <div id="reportFilters"></div>
+                <div id="quickReports" class="mt-4"></div>
                 
                 <div class="mt-4 flex justify-between items-center">
                     <button onclick="clearFilters()" 
@@ -107,7 +71,6 @@ class ReportsComponent {
                 </div>
             </div>
             
-            <!-- Área de contenido del reporte -->
             <div id="reportContent" class="bg-white rounded-lg shadow-sm border p-6">
                 <div class="text-center py-12">
                     <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

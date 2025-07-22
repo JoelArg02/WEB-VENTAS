@@ -288,38 +288,33 @@ function generateQuickReport(type) {
     const today = new Date();
     const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     
-    let reportType = 'sales';
-    let dateFrom = null;
-    let dateTo = null;
-    let categoryId = '';
-    
     switch (type) {
         case 'sales_today':
             // Configurar para ventas del día
-            reportType = 'sales';
-            dateFrom = formatDateForInput(today);
-            dateTo = formatDateForInput(today);
+            document.getElementById('reportType').value = 'sales';
+            document.getElementById('dateFrom').value = formatDateForInput(today);
+            document.getElementById('dateTo').value = formatDateForInput(today);
+            currentReportType = 'sales';
             break;
             
         case 'sales_month':
             // Configurar para ventas del mes
-            reportType = 'sales';
-            dateFrom = formatDateForInput(thisMonth);
-            dateTo = formatDateForInput(today);
+            document.getElementById('reportType').value = 'sales';
+            document.getElementById('dateFrom').value = formatDateForInput(thisMonth);
+            document.getElementById('dateTo').value = formatDateForInput(today);
+            currentReportType = 'sales';
             break;
             
         case 'low_stock':
             // Configurar para productos con stock bajo
-            reportType = 'inventory';
-            dateFrom = formatDateForInput(today);
-            dateTo = formatDateForInput(today);
+            document.getElementById('reportType').value = 'inventory';
+            currentReportType = 'inventory';
             break;
             
         case 'expiring':
             // Configurar para productos próximos a caducar
-            reportType = 'inventory';
-            dateFrom = formatDateForInput(today);
-            dateTo = formatDateForInput(today);
+            document.getElementById('reportType').value = 'inventory';
+            currentReportType = 'inventory';
             break;
             
         default:
@@ -327,78 +322,20 @@ function generateQuickReport(type) {
             return;
     }
     
-    // Actualizar el tipo de reporte
-    currentReportType = reportType;
-    
-    // Actualizar la UI de filtros primero
+    // Actualizar la UI de filtros
     const filtersContainer = document.getElementById('reportFilters');
     if (filtersContainer) {
         filtersContainer.innerHTML = ReportsFilters.renderFilters(currentReportType);
     }
     
-    // Cargar datos necesarios
+    // Cargar datos necesarios y generar el reporte
     loadCategories();
     loadSellers();
     
-    // Configurar las fechas después de actualizar la UI
+    // Agregar un pequeño delay para asegurar que los filtros se actualicen
     setTimeout(() => {
-        const reportTypeSelect = document.getElementById('reportType');
-        const dateFromInput = document.getElementById('dateFrom');
-        const dateToInput = document.getElementById('dateTo');
-        
-        if (reportTypeSelect) reportTypeSelect.value = reportType;
-        if (dateFromInput) dateFromInput.value = dateFrom;
-        if (dateToInput) dateToInput.value = dateTo;
-        
-        // Generar el reporte directamente con los parámetros
-        generateQuickReportDirectly(type, reportType, dateFrom, dateTo, categoryId);
-    }, 150);
-}
-
-// Función auxiliar para generar reportes rápidos directamente
-async function generateQuickReportDirectly(quickType, reportType, dateFrom, dateTo, categoryId) {
-    showReportLoading();
-    
-    try {
-        const body = {
-            type: reportType,
-            date_from: dateFrom,
-            date_to: dateTo,
-            category_id: categoryId
-        };
-        
-        // Para reportes especiales agregar parámetros extra
-        if (quickType === 'low_stock') {
-            body.quick_report = 'low_stock';
-        } else if (quickType === 'expiring') {
-            body.quick_report = 'expiring';
-        }
-        
-        const response = await fetch('../api/reports.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            currentReportData = data.data;
-            renderReport(reportType, data.data, { dateFrom, dateTo, categoryId });
-        } else {
-            showReportError(data.message || 'Error al generar el reporte rápido');
-        }
-    } catch (error) {
-        console.error('Error generating quick report:', error);
-        
-        if (typeof showMessage === 'function') {
-            showMessage('Error de conexión al generar el reporte rápido', 'error');
-        }
-        
-        showReportError('Error de conexión al generar el reporte rápido');
-    }
+        generateReport();
+    }, 100);
 }
 
 // Funciones de exportación (preparadas para PDF y Excel)

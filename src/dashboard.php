@@ -288,6 +288,14 @@ include 'includes/header.php';
                         console.log('Loading categories data...');
                         if (typeof loadCategoriesData === 'function') loadCategoriesData();
                         break;
+                    case 'reports':
+                        console.log('Loading reports data...');
+                        if (typeof initializeReports === 'function') {
+                            initializeReports();
+                        } else {
+                            console.warn('initializeReports function not found');
+                        }
+                        break;
                     default:
                         console.warn('Unknown tab:', tabId);
                 }
@@ -727,6 +735,8 @@ include 'includes/header.php';
 
     <!-- JavaScript específico para reportes -->
     <?php if (in_array('reports', array_column($visibleTabs, 'id'))): ?>
+    <script src="components/ReportsFilters.js"></script>
+    <script src="components/ReportsRenderer.js"></script>
     <script src="components/reports.js"></script>
     <?php endif; ?>
 

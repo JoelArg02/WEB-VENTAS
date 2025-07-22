@@ -56,8 +56,10 @@ function handleReportGeneration($reportsManager) {
     $dateFrom = $input['dateFrom'] ?? null;
     $dateTo = $input['dateTo'] ?? null;
     $categoryId = $input['categoryId'] ?? null;
+    $quickReport = $input['quickReport'] ?? null;
+    $stockStatus = $input['stockStatus'] ?? null;
+    $expiring = $input['expiring'] ?? false;
     
-    // Validar tipo de reporte
     $validTypes = ['sales', 'products', 'inventory', 'categories'];
     if (!in_array($type, $validTypes)) {
         http_response_code(400);
@@ -66,7 +68,11 @@ function handleReportGeneration($reportsManager) {
     }
     
     try {
-        $data = generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId);
+        if ($quickReport) {
+            $data = generateQuickReportData($reportsManager, $quickReport, $dateFrom, $dateTo, $stockStatus, $expiring);
+        } else {
+            $data = generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId);
+        }
         echo json_encode(['success' => true, 'data' => $data]);
     } catch (Exception $e) {
         error_log("Error generating report: " . $e->getMessage());
@@ -113,20 +119,16 @@ function generateSalesReport($reportsManager, $dateFrom, $dateTo) {
 }
 
 function generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId) {
-    // Obtener productos más vendidos
     $bestSelling = $reportsManager->getBestSellingProducts($dateFrom, $dateTo, 50);
     
-    // Filtrar por categoría si se especifica
     if ($categoryId) {
         $bestSelling = array_filter($bestSelling, function($product) use ($categoryId) {
-            // Verificar si existe category_id en el producto o usar el name de la categoría
             return (isset($product['category_id']) && $product['category_id'] == $categoryId) ||
                    (isset($product['category_name']) && !empty($product['category_name']));
         });
-        $bestSelling = array_values($bestSelling); // Reindexar el array
+        $bestSelling = array_values($bestSelling);
     }
     
-    // Calcular resumen
     $totalProducts = count($bestSelling);
     $totalSold = array_sum(array_column($bestSelling, 'total_sold'));
     $totalRevenue = array_sum(array_column($bestSelling, 'total_revenue'));
@@ -148,20 +150,16 @@ function generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId
 }
 
 function generateInventoryReport($reportsManager, $categoryId) {
-    // Obtener reporte completo de inventario
     $inventory = $reportsManager->getInventoryReport();
     
-    // Filtrar por categoría si se especifica
     if ($categoryId) {
         $inventory = array_filter($inventory, function($product) use ($categoryId) {
-            // Verificar si existe category_id en el producto o usar el name de la categoría
             return (isset($product['category_id']) && $product['category_id'] == $categoryId) ||
                    (isset($product['category_name']) && !empty($product['category_name']));
         });
-        $inventory = array_values($inventory); // Reindexar el array
+        $inventory = array_values($inventory);
     }
     
-    // Calcular resumen
     $totalProducts = count($inventory);
     $totalStockValue = array_sum(array_column($inventory, 'stock_value'));
     $totalStock = array_sum(array_column($inventory, 'stock'));
@@ -180,6 +178,43 @@ function generateInventoryReport($reportsManager, $categoryId) {
         'type' => 'inventory',
         'category_id' => $categoryId
     ];
+}
+
+function generateQuickReportData($reportsManager, $quickReport, $dateFrom, $dateTo, $stockStatus, $expiring) {
+    switch($quickReport) {
+        case 'sales_today':
+        case 'sales_month':
+            return generateSalesReport($reportsManager, $dateFrom, $dateTo);
+            
+        case 'low_stock':
+            $inventory = $reportsManager->getLowStockProducts(10);
+            return [
+                'summary' => [
+                    'total_products' => count($inventory),
+                    'total_stock_value' => array_sum(array_column($inventory, 'stock_value')),
+                    'total_stock' => array_sum(array_column($inventory, 'stock')),
+                    'low_stock_count' => count($inventory)
+                ],
+                'inventory' => $inventory,
+                'type' => 'inventory'
+            ];
+            
+        case 'expiring':
+            $inventory = $reportsManager->getExpiringProducts(30);
+            return [
+                'summary' => [
+                    'total_products' => count($inventory),
+                    'total_stock_value' => array_sum(array_column($inventory, 'stock_value')),
+                    'total_stock' => array_sum(array_column($inventory, 'stock')),
+                    'low_stock_count' => 0
+                ],
+                'inventory' => $inventory,
+                'type' => 'inventory'
+            ];
+            
+        default:
+            throw new Exception('Reporte rápido no soportado');
+    }
 }
 
 function generateCategoriesReport($reportsManager, $dateFrom, $dateTo) {

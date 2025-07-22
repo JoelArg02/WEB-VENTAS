@@ -94,6 +94,8 @@ class ReportsManager {
                         p.name,
                         p.price,
                         p.stock,
+                        p.image,
+                        p.category_id,
                         c.name as category_name,
                         SUM(si.quantity) as total_sold,
                         SUM(si.quantity * si.unit_price) as total_revenue,
@@ -136,8 +138,11 @@ class ReportsManager {
                         p.name,
                         p.price,
                         p.stock,
+                        p.image,
                         p.expiration_date,
+                        p.category_id,
                         c.name as category_name,
+                        (p.stock * p.price) as stock_value,
                         CASE 
                             WHEN p.stock <= 5 THEN 'Crítico'
                             WHEN p.stock <= 10 THEN 'Bajo'
@@ -166,8 +171,11 @@ class ReportsManager {
                         p.name,
                         p.price,
                         p.stock,
+                        p.image,
                         p.expiration_date,
+                        p.category_id,
                         c.name as category_name,
+                        (p.stock * p.price) as stock_value,
                         DATEDIFF(p.expiration_date, CURDATE()) as days_until_expiration,
                         CASE 
                             WHEN DATEDIFF(p.expiration_date, CURDATE()) <= 7 THEN 'Crítico'
@@ -278,7 +286,9 @@ class ReportsManager {
                         p.name,
                         p.price,
                         p.stock,
+                        p.image,
                         p.expiration_date,
+                        p.category_id,
                         c.name as category_name,
                         COALESCE(SUM(si.quantity), 0) as total_sold,
                         COALESCE(SUM(si.quantity * si.unit_price), 0) as total_revenue,
