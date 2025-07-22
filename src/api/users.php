@@ -30,6 +30,7 @@ try {
 
         $userManager = new UserManager();
         
+        // Si se proporciona un ID, devolver un usuario específico
         if (isset($_GET['id'])) {
             $id = $_GET['id'];
             try {
