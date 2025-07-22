@@ -27,6 +27,7 @@ CREATE TABLE products (
     FOREIGN KEY (category_id) REFERENCES categories(id)
 ) ENGINE=InnoDB;
 
+-- Tabla sales: información general de la venta
 CREATE TABLE sales (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -39,19 +40,18 @@ CREATE TABLE sales (
     sale_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     status TINYINT UNSIGNED NOT NULL DEFAULT 1,
     FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB;
+);
 
+-- Tabla sale_items: detalles de cada producto en la venta
 CREATE TABLE sale_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     sale_id INT NOT NULL,
     product_id INT NOT NULL,
     quantity INT NOT NULL DEFAULT 1,
     unit_price DECIMAL(10,2) NOT NULL,
-    
     FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id)
-) ENGINE=InnoDB;
-
+);
 -- Insertar datos de prueba
 INSERT INTO users (name, email, phone, password, role, status) VALUES
 ('Administrador', 'admin@test.com', '1234567890', '$2y$10$L1.KGidJUaVfpp5sBVDV6OPt4rtC/Bv0VxmOZ5NQju4adGxRGkpv.', 'admin', 1),

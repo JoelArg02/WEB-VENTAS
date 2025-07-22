@@ -98,42 +98,68 @@ class SalesManager {
                 throw new Exception('No se especificaron productos para la venta');
             }
             
+            // Validar estructura de productos
+            foreach ($data['products'] as $index => $product) {
+                if (!isset($product['product_id']) || empty($product['product_id'])) {
+                    throw new Exception("El producto en la posición $index no tiene product_id válido");
+                }
+                if (!isset($product['quantity']) || $product['quantity'] <= 0) {
+                    throw new Exception("El producto en la posición $index no tiene cantidad válida");
+                }
+                if (!isset($product['price']) && !isset($product['unit_price'])) {
+                    throw new Exception("El producto en la posición $index no tiene precio válido");
+                }
+            }
+            
             // Verificar stock disponible para todos los productos
             foreach ($data['products'] as $product) {
-                $stockQuery = "SELECT stock FROM products WHERE id = :product_id";
+                $stockQuery = "SELECT id, stock, name FROM products WHERE id = :product_id AND status = 1";
                 $stockStmt = $this->conn->prepare($stockQuery);
-                $stockStmt->bindParam(':product_id', $product['product_id']);
+                $stockStmt->bindParam(':product_id', $product['product_id'], PDO::PARAM_INT);
                 $stockStmt->execute();
                 $productInfo = $stockStmt->fetch();
                 
-                if (!$productInfo || $productInfo['stock'] < $product['quantity']) {
-                    throw new Exception('Stock insuficiente para uno de los productos seleccionados');
+                error_log('SalesManager::createSale - Product lookup for ID ' . $product['product_id'] . ': ' . json_encode($productInfo));
+                
+                if (!$productInfo) {
+                    throw new Exception('El producto con ID ' . $product['product_id'] . ' no existe o está inactivo');
+                }
+                
+                if ($productInfo['stock'] < $product['quantity']) {
+                    throw new Exception('Stock insuficiente para el producto "' . $productInfo['name'] . '". Stock disponible: ' . $productInfo['stock'] . ', solicitado: ' . $product['quantity']);
                 }
             }
             
             // Iniciar transacción
             $this->conn->beginTransaction();
             
-            // Crear la venta principal
+            // Crear la venta principal (SIN product_id, quantity, unit_price)
             $query = "INSERT INTO sales (user_id, client, subtotal, iva_amount, total_amount, money_received, change_amount, sale_date, status) 
                      VALUES (:user_id, :client, :subtotal, :iva_amount, :total_amount, :money_received, :change_amount, NOW(), :status)";
             
             $stmt = $this->conn->prepare($query);
-            $stmt->bindParam(':user_id', $data['user_id']);
-            $stmt->bindParam(':client', $data['client']);
-            $stmt->bindParam(':subtotal', $data['subtotal']);
-            $stmt->bindParam(':iva_amount', $data['iva_amount']);
-            $stmt->bindParam(':total_amount', $data['total_amount']);
-            $stmt->bindParam(':money_received', $data['money_received']);
-            $stmt->bindParam(':change_amount', $data['change_amount']);
+            $stmt->bindValue(':user_id', $data['user_id'], PDO::PARAM_INT);
+            $stmt->bindValue(':client', $data['client'], PDO::PARAM_STR);
+            $stmt->bindValue(':subtotal', $data['subtotal'], PDO::PARAM_STR);
+            $stmt->bindValue(':iva_amount', $data['iva_amount'], PDO::PARAM_STR);
+            $stmt->bindValue(':total_amount', $data['total_amount'], PDO::PARAM_STR);
+            $stmt->bindValue(':money_received', $data['money_received'], PDO::PARAM_STR);
+            $stmt->bindValue(':change_amount', $data['change_amount'], PDO::PARAM_STR);
             $status = isset($data['status']) ? $data['status'] : 1;
-            $stmt->bindParam(':status', $status);
+            $stmt->bindValue(':status', $status, PDO::PARAM_INT);
             
-            error_log('SalesManager::createSale - About to execute INSERT query');
+            error_log('SalesManager::createSale - About to execute INSERT query for sales table');
             $result = $stmt->execute();
-            error_log('SalesManager::createSale - INSERT result: ' . ($result ? 'true' : 'false'));
+            
+            if (!$result) {
+                $errorInfo = $stmt->errorInfo();
+                throw new Exception('Error al insertar venta: ' . $errorInfo[2]);
+            }
+            
+            error_log('SalesManager::createSale - Sales INSERT successful');
             
             $saleId = $this->conn->lastInsertId();
+            error_log('SalesManager::createSale - Sale ID: ' . $saleId);
             
             // Insertar los detalles de productos
             $itemQuery = "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price) 
@@ -141,22 +167,50 @@ class SalesManager {
             $itemStmt = $this->conn->prepare($itemQuery);
             
             foreach ($data['products'] as $product) {
-                $itemStmt->bindParam(':sale_id', $saleId);
-                $itemStmt->bindParam(':product_id', $product['product_id']);
-                $itemStmt->bindParam(':quantity', $product['quantity']);
-                // Usar 'price' si existe, sino usar 'unit_price'
-                $unitPrice = isset($product['price']) ? $product['price'] : $product['unit_price'];
-                $itemStmt->bindParam(':unit_price', $unitPrice);
-                $itemStmt->execute();
+                error_log('SalesManager::createSale - Processing product: ' . json_encode($product));
+                
+                $productId = (int)$product['product_id'];
+                $quantity = (int)$product['quantity'];
+                $unitPrice = isset($product['price']) ? (float)$product['price'] : (float)$product['unit_price'];
+                
+                // Validar que los valores sean válidos
+                if ($productId <= 0) {
+                    throw new Exception('Product ID inválido: ' . $product['product_id']);
+                }
+                if ($quantity <= 0) {
+                    throw new Exception('Cantidad inválida: ' . $product['quantity']);
+                }
+                if ($unitPrice <= 0) {
+                    throw new Exception('Precio inválido: ' . $unitPrice);
+                }
+                
+                error_log('SalesManager::createSale - Inserting: sale_id=' . $saleId . ', product_id=' . $productId . ', quantity=' . $quantity . ', unit_price=' . $unitPrice);
+                
+                $itemStmt->bindValue(':sale_id', $saleId, PDO::PARAM_INT);
+                $itemStmt->bindValue(':product_id', $productId, PDO::PARAM_INT);
+                $itemStmt->bindValue(':quantity', $quantity, PDO::PARAM_INT);
+                $itemStmt->bindValue(':unit_price', $unitPrice, PDO::PARAM_STR);
+                
+                $itemResult = $itemStmt->execute();
+                
+                if (!$itemResult) {
+                    $errorInfo = $itemStmt->errorInfo();
+                    throw new Exception('Error al insertar item de venta: ' . $errorInfo[2]);
+                }
+                
+                error_log('SalesManager::createSale - Sale item inserted successfully');
                 
                 // Actualizar stock del producto
-                $updateStockQuery = "UPDATE products SET stock = stock - :quantity WHERE id = :product_id";
+                $updateStockQuery = "UPDATE products SET stock = stock - ? WHERE id = ?";
                 $updateStmt = $this->conn->prepare($updateStockQuery);
-                $updateStmt->bindParam(':quantity', $product['quantity']);
-                $updateStmt->bindParam(':product_id', $product['product_id']);
-                $updateResult = $updateStmt->execute();
+                $updateResult = $updateStmt->execute([$quantity, $productId]);
                 
-                error_log('SalesManager::createSale - Stock update result for product ' . $product['product_id'] . ': ' . ($updateResult ? 'true' : 'false'));
+                if (!$updateResult) {
+                    $errorInfo = $updateStmt->errorInfo();
+                    throw new Exception('Error al actualizar stock: ' . $errorInfo[2]);
+                }
+                
+                error_log('SalesManager::createSale - Stock updated for product ' . $productId);
             }
             
             $this->conn->commit();

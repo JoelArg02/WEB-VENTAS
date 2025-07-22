@@ -170,9 +170,7 @@ include 'includes/header.php';
             });
         }
         
-        function showMessage(message, type = 'info') {
-            console.log(`[${type.toUpperCase()}] ${message}`);
-            
+        function showMessage(message, type = 'info') {            
             const colors = {
                 success: 'bg-green-100 border-green-400 text-green-700',
                 error: 'bg-red-100 border-red-400 text-red-700',
@@ -449,17 +447,29 @@ include 'includes/header.php';
                 `;
                 
                 data.recent_sales.slice(0, 5).forEach(sale => {
-                    const total = parseFloat(sale.price) * parseInt(sale.quantity);
+                    // Crear información de productos para mostrar
+                    let productsInfo = 'Sin productos';
+                    let totalItems = 0;
+                    
+                    if (sale.items && Array.isArray(sale.items) && sale.items.length > 0) {
+                        const productNames = sale.items.map(item => 
+                            `${item.product_name || 'Producto'} (${item.quantity || 1}x)`
+                        ).join(', ');
+                        productsInfo = productNames.length > 50 ? productNames.substring(0, 50) + '...' : productNames;
+                        totalItems = sale.items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+                    }
+                    
                     html += `
                         <div class="flex justify-between items-center border-b pb-2">
-                            <div>
-                                <div class="font-medium">${sale.product_name}</div>
-                                <div class="text-sm text-gray-500">${sale.client}</div>
-                                <div class="text-xs text-gray-400">${formatDate(sale.sale_date)} - ${sale.user_name}</div>
+                            <div class="flex-1">
+                                <div class="font-medium text-blue-600">#${sale.id || 'N/A'}</div>
+                                <div class="text-sm text-gray-700">${sale.client || 'Cliente no especificado'}</div>
+                                <div class="text-xs text-gray-500" title="${productsInfo}">${productsInfo}</div>
+                                <div class="text-xs text-gray-400">${formatDate(sale.sale_date)} - ${sale.user_name || 'N/A'}</div>
                             </div>
                             <div class="text-right">
-                                <div class="font-semibold">${formatCurrency(total)}</div>
-                                <div class="text-xs text-gray-500">Cant: ${sale.quantity}</div>
+                                <div class="font-semibold text-green-600">${formatCurrency(parseFloat(sale.total_amount) || 0)}</div>
+                                <div class="text-xs text-gray-500">${totalItems} productos</div>
                             </div>
                         </div>
                     `;
