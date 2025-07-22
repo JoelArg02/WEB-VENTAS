@@ -59,6 +59,21 @@ class ProductManager {
         }
     }
     
+    public function getProductById($id) {
+        try {
+            $query = "SELECT p.*, c.name as category_name 
+                     FROM products p 
+                     LEFT JOIN categories c ON p.category_id = c.id 
+                     WHERE p.id = :id";
+            $stmt = $this->conn->prepare($query);
+            $stmt->bindParam(':id', $id);
+            $stmt->execute();
+            return $stmt->fetch();
+        } catch (Exception $e) {
+            throw new Exception('Error al obtener producto: ' . $e->getMessage());
+        }
+    }
+    
     public function createProduct($data) {
         try {
             // Verificar que la conexión esté activa

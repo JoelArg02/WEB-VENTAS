@@ -33,7 +33,6 @@ class SalesComponent {
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">ID</th>
-                                <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Cliente</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Productos</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Subtotal</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">IVA</th>
@@ -98,7 +97,6 @@ class SalesComponent {
                         html += `
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-2 text-sm text-gray-900 font-medium">#${sale.id || 'N/A'}</td>
-                                <td class="px-4 py-2 text-sm text-gray-900">${sale.client || 'N/A'}</td>
                                 <td class="px-4 py-2 text-sm text-gray-600" title="${productsInfo}">
                                     ${displayProductsInfo}
                                 </td>

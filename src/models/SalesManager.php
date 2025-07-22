@@ -161,7 +161,6 @@ class SalesManager {
             $saleId = $this->conn->lastInsertId();
             error_log('SalesManager::createSale - Sale ID: ' . $saleId);
             
-            // Insertar los detalles de productos
             $itemQuery = "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price) 
                          VALUES (:sale_id, :product_id, :quantity, :unit_price)";
             $itemStmt = $this->conn->prepare($itemQuery);
@@ -173,7 +172,6 @@ class SalesManager {
                 $quantity = (int)$product['quantity'];
                 $unitPrice = isset($product['price']) ? (float)$product['price'] : (float)$product['unit_price'];
                 
-                // Validar que los valores sean válidos
                 if ($productId <= 0) {
                     throw new Exception('Product ID inválido: ' . $product['product_id']);
                 }
@@ -184,7 +182,6 @@ class SalesManager {
                     throw new Exception('Precio inválido: ' . $unitPrice);
                 }
                 
-                error_log('SalesManager::createSale - Inserting: sale_id=' . $saleId . ', product_id=' . $productId . ', quantity=' . $quantity . ', unit_price=' . $unitPrice);
                 
                 $itemStmt->bindValue(':sale_id', $saleId, PDO::PARAM_INT);
                 $itemStmt->bindValue(':product_id', $productId, PDO::PARAM_INT);
@@ -200,7 +197,6 @@ class SalesManager {
                 
                 error_log('SalesManager::createSale - Sale item inserted successfully');
                 
-                // Actualizar stock del producto
                 $updateStockQuery = "UPDATE products SET stock = stock - ? WHERE id = ?";
                 $updateStmt = $this->conn->prepare($updateStockQuery);
                 $updateResult = $updateStmt->execute([$quantity, $productId]);
@@ -227,7 +223,6 @@ class SalesManager {
         try {
             $stats = [];
             
-            // Ventas de hoy
             $todayQuery = "SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as total 
                           FROM sales
                           WHERE DATE(sale_date) = CURDATE()";
@@ -235,7 +230,6 @@ class SalesManager {
             $stmt->execute();
             $stats['today'] = $stmt->fetch();
             
-            // Ventas del mes
             $monthQuery = "SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as total 
                           FROM sales
                           WHERE YEAR(sale_date) = YEAR(CURDATE()) 

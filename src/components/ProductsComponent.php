@@ -113,7 +113,7 @@ class ProductsComponent {
             }
             
             async function editProduct(id) {
-                showMessage('Función de edición en desarrollo', 'info');
+                openEditProductModal(id);
             }
             
             async function deleteProduct(id) {

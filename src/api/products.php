@@ -23,16 +23,30 @@ try {
         
         $productManager = new ProductManager();
         
-        if (isset($_GET['low_stock'])) {
+        if (isset($_GET['id'])) {
+            // Obtener un producto específico por ID
+            $product = $productManager->getProductById($_GET['id']);
+            if ($product) {
+                echo json_encode([
+                    'success' => true,
+                    'data' => $product
+                ]);
+            } else {
+                throw new Exception('Producto no encontrado');
+            }
+        } elseif (isset($_GET['low_stock'])) {
             $products = $productManager->getLowStockProducts();
+            echo json_encode([
+                'success' => true,
+                'data' => $products
+            ]);
         } else {
             $products = $productManager->getAllProducts();
+            echo json_encode([
+                'success' => true,
+                'data' => $products
+            ]);
         }
-        
-        echo json_encode([
-            'success' => true,
-            'data' => $products
-        ]);
         
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
         PermissionManager::requirePermission($userData['role'], 'create_product');
