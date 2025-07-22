@@ -258,33 +258,38 @@ class ModalComponent
                 productLine.id = `product-line-${lineId}`;
 
                 productLine.innerHTML = `
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div class="relative">
+                    <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+                        <div class="md:col-span-1 flex items-center justify-center">
+                            <img id="productImage-${lineId}" src="" alt="Imagen" class="w-20 h-20 object-cover border rounded-lg hidden">
+                        </div>
+                        
+                        <div class="md:col-span-2 relative">
                             <label class="block text-sm font-medium text-gray-700 mb-1">Producto</label>
                             <input type="text" id="productSearch-${lineId}" placeholder="Buscar producto..." class="w-full border rounded-lg p-2" autocomplete="off">
                             <div id="productDropdown-${lineId}" class="hidden absolute z-50 w-full max-h-48 overflow-y-auto bg-white border rounded-lg shadow-lg mt-1"></div>
                             <input type="hidden" id="productId-${lineId}" name="products[${lineId}][product_id]">
                         </div>
+                        
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
                             <input type="number" id="quantity-${lineId}" name="products[${lineId}][quantity]" value="1" min="1" class="w-full border rounded-lg p-2" onchange="updateLineTotal(${lineId})">
                         </div>
+                        
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Precio</label>
                             <input type="number" id="price-${lineId}" name="products[${lineId}][price]" readonly class="w-full border rounded-lg p-2 bg-gray-100" placeholder="$0">
                         </div>
+                        
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Subtotal</label>
                             <input type="text" id="lineSubtotal-${lineId}" readonly class="w-full border rounded-lg p-2 bg-gray-100" placeholder="$0">
-
                         </div>
+                        
                         <div class="flex items-end">
                             <button type="button" onclick="removeProductLine(${lineId})" class="w-full px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Eliminar</button>
                         </div>
                     </div>
-                `;
-
-                productLines.appendChild(productLine);
+                `;                productLines.appendChild(productLine);
                 setupProductSearchForLine(lineId);
             }
 
@@ -316,31 +321,61 @@ class ModalComponent
                 if (products.length === 0) {
                     dropdown.innerHTML = '<div class="p-3 text-gray-500">No se encontraron productos</div>';
                 } else {
-                    dropdown.innerHTML = products.map(product => `
-                        <div class="p-3 hover:bg-gray-100 cursor-pointer border-b" onclick="selectProductForLine(${lineId}, ${product.id}, '${product.name}', ${product.price}, ${product.stock})">
-                            <div class="font-medium">${product.name}</div>
-                            <div class="text-sm text-gray-600">${formatCurrency(product.price)} - Stock: ${product.stock}</div>
-                        </div>
-                    `).join('');
+                    dropdown.innerHTML = products.map(product => {
+                        let imageHtml = '';
+                        if (product.image && product.image.trim()) {
+                            imageHtml = `<img src="${product.image}" class="w-10 h-10 rounded object-cover border mr-3" alt="${product.name}">`;
+                        } else {
+                            imageHtml = `<div class="w-10 h-10 rounded bg-gray-200 flex items-center justify-center border mr-3">
+                                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z"></path>
+                                            </svg>
+                                         </div>`;
+                        }
+                        
+                        return `
+                            <div class="p-3 hover:bg-gray-100 cursor-pointer border-b flex items-center" onclick="selectProductForLine(${lineId}, ${product.id}, '${product.name}', ${product.price}, ${product.stock}, '${product.image || ''}')">
+                                ${imageHtml}
+                                <div class="flex-1">
+                                    <div class="font-medium">${product.name}</div>
+                                    <div class="text-sm text-gray-600">${formatCurrency(product.price)} - Stock: ${product.stock}</div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
                 }
                 dropdown.classList.remove('hidden');
             }
 
-            function selectProductForLine(lineId, id, name, price, stock) {
+            function selectProductForLine(lineId, id, name, price, stock, image) {
                 const searchInput = document.getElementById(`productSearch-${lineId}`);
                 const dropdown = document.getElementById(`productDropdown-${lineId}`);
                 const hiddenInput = document.getElementById(`productId-${lineId}`);
+                const productImage = document.getElementById(`productImage-${lineId}`);
 
                 searchInput.value = name;
                 hiddenInput.value = id;
                 dropdown.classList.add('hidden');
+
+                // Mostrar imagen del producto
+                if (productImage) {
+                    if (image && image.trim() && image !== 'undefined') {
+                        productImage.src = image;
+                        productImage.classList.remove('hidden');
+                    } else {
+                        // Mostrar imagen por defecto si no hay imagen
+                        productImage.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iOTYiIGhlaWdodD0iOTYiIHZpZXdCb3g9IjAgMCA5NiA5NiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9Ijk2IiBoZWlnaHQ9Ijk2IiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0zNiAzNkg2MFY2MEgzNlYzNloiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9zdmc+';
+                        productImage.classList.remove('hidden');
+                    }
+                }
 
                 // Actualizar datos de la línea
                 window.saleProducts[lineId] = {
                     id,
                     name,
                     price,
-                    stock
+                    stock,
+                    image: image || ''
                 };
                 updateLineTotal(lineId);
             }
@@ -348,6 +383,14 @@ class ModalComponent
             function clearLineData(lineId) {
                 document.getElementById(`price-${lineId}`).value = '';
                 document.getElementById(`lineSubtotal-${lineId}`).value = '';
+                
+                // Ocultar imagen del producto
+                const productImage = document.getElementById(`productImage-${lineId}`);
+                if (productImage) {
+                    productImage.classList.add('hidden');
+                    productImage.src = '';
+                }
+                
                 delete window.saleProducts[lineId];
                 updateSaleTotals();
             }
