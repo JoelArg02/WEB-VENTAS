@@ -47,7 +47,6 @@ class ReportsManager {
         try {
             $sql = "SELECT 
                         s.id,
-                        s.client,
                         s.subtotal,
                         s.iva_amount,
                         s.total_amount,

@@ -469,25 +469,35 @@ function generatePDF(reportType, data) {
     doc.text('Generado el: ' + new Date().toLocaleDateString('es-ES'), 20, 30);
     
     let yPosition = 50;
+    let generatePromise;
     
     switch (reportType) {
         case 'sales':
             generateSalesPDF(doc, data, yPosition);
+            generatePromise = Promise.resolve(doc);
             break;
         case 'products':
-            generateProductsPDF(doc, data, yPosition);
+            generatePromise = generateProductsPDF(doc, data, yPosition);
             break;
         case 'inventory':
-            generateInventoryPDF(doc, data, yPosition);
+            generatePromise = generateInventoryPDF(doc, data, yPosition);
             break;
         case 'categories':
             generateCategoriesPDF(doc, data, yPosition);
+            generatePromise = Promise.resolve(doc);
             break;
+        default:
+            generatePromise = Promise.resolve(doc);
     }
     
-    // Guardar el PDF
-    doc.save(`reporte_${reportType}_${new Date().toISOString().split('T')[0]}.pdf`);
-    showMessage('PDF generado exitosamente', 'success');
+    // Guardar el PDF cuando esté listo
+    generatePromise.then(finalDoc => {
+        finalDoc.save(`reporte_${reportType}_${new Date().toISOString().split('T')[0]}.pdf`);
+        showMessage('PDF generado exitosamente', 'success');
+    }).catch(error => {
+        console.error('Error generating PDF:', error);
+        showMessage('Error al generar el PDF', 'error');
+    });
 }
 
 function generateExcel(reportType, data) {
@@ -541,25 +551,27 @@ function generateSalesPDF(doc, data, startY) {
         doc.text('Ventas Detalladas', 20, y);
         y += 10;
         
-        // Headers
+        // Headers (sin cliente)
         doc.setFontSize(10);
+        doc.setFont(undefined, 'bold');
         doc.text('ID', 20, y);
-        doc.text('Cliente', 40, y);
-        doc.text('Vendedor', 80, y);
-        doc.text('Total', 120, y);
-        doc.text('Fecha', 150, y);
+        doc.text('Vendedor', 50, y);
+        doc.text('Total', 100, y);
+        doc.text('Productos', 130, y);
+        doc.text('Fecha', 170, y);
+        doc.setFont(undefined, 'normal');
         y += 8;
         
-        // Datos
-        data.details.slice(0, 25).forEach(sale => { // Limitar a 25 ventas para que quepa en la página
+        // Datos (sin cliente)
+        data.details.slice(0, 25).forEach(sale => {
             doc.text(String(sale.id), 20, y);
-            doc.text(sale.client || 'N/A', 40, y);
-            doc.text(sale.seller_name || 'N/A', 80, y);
-            doc.text(formatCurrency(sale.total_amount), 120, y);
-            doc.text(formatDate(sale.sale_date), 150, y);
+            doc.text(sale.seller_name || 'N/A', 50, y);
+            doc.text(formatCurrency(sale.total_amount), 100, y);
+            doc.text(String(sale.total_items || 0), 130, y);
+            doc.text(formatDate(sale.sale_date), 170, y);
             y += 6;
             
-            if (y > 250) { // Nueva página si es necesario
+            if (y > 250) {
                 doc.addPage();
                 y = 20;
             }
@@ -588,38 +600,73 @@ function generateProductsPDF(doc, data, startY) {
         y += 8;
     });
     
-    // Tabla de productos
+    // Tabla de productos con imágenes
     if (products.length > 0) {
         y += 10;
         doc.setFontSize(14);
         doc.text('Productos Más Vendidos', 20, y);
-        y += 10;
+        y += 15;
         
         // Headers
         doc.setFontSize(10);
-        doc.text('Producto', 20, y);
-        doc.text('Categoría', 70, y);
-        doc.text('Precio', 110, y);
-        doc.text('Vendidos', 140, y);
-        doc.text('Ingresos', 170, y);
-        y += 8;
+        doc.setFont(undefined, 'bold');
+        doc.text('Imagen', 20, y);
+        doc.text('Producto', 45, y);
+        doc.text('Categoría', 100, y);
+        doc.text('Precio', 140, y);
+        doc.text('Vendidos', 165, y);
+        doc.text('Ingresos', 185, y);
+        doc.setFont(undefined, 'normal');
+        y += 10;
         
-        // Datos
-        products.slice(0, 30).forEach(product => {
-            const productName = product.name.length > 25 ? product.name.substring(0, 25) + '...' : product.name;
-            doc.text(productName, 20, y);
-            doc.text(product.category_name || 'N/A', 70, y);
-            doc.text(formatCurrency(product.price), 110, y);
-            doc.text(String(product.total_sold || 0), 140, y);
-            doc.text(formatCurrency(product.total_revenue || 0), 170, y);
-            y += 6;
-            
-            if (y > 250) {
-                doc.addPage();
-                y = 20;
+        // Datos con imágenes
+        const imagePromises = [];
+        products.slice(0, 20).forEach((product, index) => {
+            if (product.image) {
+                const promise = loadImageForPDF(product.image).then(imageData => {
+                    return { imageData, product, index };
+                }).catch(() => {
+                    return { imageData: null, product, index };
+                });
+                imagePromises.push(promise);
+            } else {
+                imagePromises.push(Promise.resolve({ imageData: null, product, index }));
             }
         });
+        
+        return Promise.all(imagePromises).then(results => {
+            results.forEach(({ imageData, product, index }) => {
+                const rowY = y + (index * 25);
+                
+                // Imagen
+                if (imageData) {
+                    try {
+                        doc.addImage(imageData, 'JPEG', 20, rowY - 8, 20, 20);
+                    } catch (e) {
+                        console.error('Error adding image to PDF:', e);
+                    }
+                }
+                
+                // Datos del producto
+                const productName = product.name.length > 20 ? product.name.substring(0, 20) + '...' : product.name;
+                doc.text(productName, 45, rowY);
+                doc.text(product.category_name || 'N/A', 100, rowY);
+                doc.text(formatCurrency(product.price), 140, rowY);
+                doc.text(String(product.total_sold || 0), 165, rowY);
+                doc.text(formatCurrency(product.total_revenue || 0), 185, rowY);
+                
+                // Verificar si necesitamos nueva página
+                if (rowY > 230) {
+                    doc.addPage();
+                    y = 20;
+                }
+            });
+            
+            return doc;
+        });
     }
+    
+    return Promise.resolve(doc);
 }
 
 function generateInventoryPDF(doc, data, startY) {
@@ -644,38 +691,84 @@ function generateInventoryPDF(doc, data, startY) {
         y += 8;
     });
     
-    // Tabla de inventario
+    // Tabla de inventario con imágenes
     if (inventory.length > 0) {
         y += 10;
         doc.setFontSize(14);
         doc.text('Inventario Detallado', 20, y);
-        y += 10;
+        y += 15;
         
         // Headers
         doc.setFontSize(10);
-        doc.text('Producto', 20, y);
-        doc.text('Categoría', 70, y);
-        doc.text('Stock', 110, y);
-        doc.text('Precio', 140, y);
-        doc.text('Valor', 170, y);
-        y += 8;
+        doc.setFont(undefined, 'bold');
+        doc.text('Imagen', 20, y);
+        doc.text('Producto', 45, y);
+        doc.text('Categoría', 100, y);
+        doc.text('Stock', 140, y);
+        doc.text('Precio', 165, y);
+        doc.text('Valor', 185, y);
+        doc.setFont(undefined, 'normal');
+        y += 10;
         
-        // Datos
-        inventory.slice(0, 30).forEach(item => {
-            const productName = item.name.length > 25 ? item.name.substring(0, 25) + '...' : item.name;
-            doc.text(productName, 20, y);
-            doc.text(item.category_name || 'N/A', 70, y);
-            doc.text(String(item.stock), 110, y);
-            doc.text(formatCurrency(item.price), 140, y);
-            doc.text(formatCurrency(item.stock_value), 170, y);
-            y += 6;
-            
-            if (y > 250) {
-                doc.addPage();
-                y = 20;
+        // Datos con imágenes
+        const imagePromises = [];
+        inventory.slice(0, 20).forEach((item, index) => {
+            if (item.image) {
+                const promise = loadImageForPDF(item.image).then(imageData => {
+                    return { imageData, item, index };
+                }).catch(() => {
+                    return { imageData: null, item, index };
+                });
+                imagePromises.push(promise);
+            } else {
+                imagePromises.push(Promise.resolve({ imageData: null, item, index }));
             }
         });
+        
+        return Promise.all(imagePromises).then(results => {
+            results.forEach(({ imageData, item, index }) => {
+                const rowY = y + (index * 25);
+                
+                // Imagen
+                if (imageData) {
+                    try {
+                        doc.addImage(imageData, 'JPEG', 20, rowY - 8, 20, 20);
+                    } catch (e) {
+                        console.error('Error adding image to PDF:', e);
+                    }
+                }
+                
+                // Datos del producto
+                const productName = item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name;
+                doc.text(productName, 45, rowY);
+                doc.text(item.category_name || 'N/A', 100, rowY);
+                doc.text(String(item.stock), 140, rowY);
+                doc.text(formatCurrency(item.price), 165, rowY);
+                doc.text(formatCurrency(item.stock_value), 185, rowY);
+                
+                // Estado del stock con color
+                const stockStatus = item.stock_status || 'Stock Bueno';
+                if (stockStatus === 'Stock Crítico') {
+                    doc.setTextColor(255, 0, 0); // Rojo
+                } else if (stockStatus === 'Stock Bajo') {
+                    doc.setTextColor(255, 165, 0); // Naranja
+                } else {
+                    doc.setTextColor(0, 0, 0); // Negro
+                }
+                
+                // Verificar si necesitamos nueva página
+                if (rowY > 230) {
+                    doc.addPage();
+                    y = 20;
+                }
+            });
+            
+            doc.setTextColor(0, 0, 0); // Resetear color
+            return doc;
+        });
     }
+    
+    return Promise.resolve(doc);
 }
 
 function generateCategoriesPDF(doc, data, startY) {
@@ -916,4 +1009,58 @@ function exportCurrentReport(format) {
     } else if (format === 'excel') {
         exportToExcel(currentReportType, currentReportData);
     }
+}
+
+// Función auxiliar para cargar imágenes para PDF
+function loadImageForPDF(imageSrc) {
+    return new Promise((resolve, reject) => {
+        if (!imageSrc) {
+            reject(new Error('No image source provided'));
+            return;
+        }
+        
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        
+        img.onload = function() {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Ajustar tamaño del canvas
+                canvas.width = 100;
+                canvas.height = 100;
+                
+                // Dibujar la imagen redimensionada
+                ctx.drawImage(img, 0, 0, 100, 100);
+                
+                // Convertir a base64
+                const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(dataURL);
+            } catch (error) {
+                console.error('Error processing image:', error);
+                reject(error);
+            }
+        };
+        
+        img.onerror = function() {
+            console.error('Error loading image:', imageSrc);
+            reject(new Error('Failed to load image'));
+        };
+        
+        // Manejar diferentes formatos de imagen
+        let processedSrc = imageSrc;
+        if (imageSrc.startsWith('data:image')) {
+            // Si ya es base64, usar directamente
+            processedSrc = imageSrc;
+        } else if (imageSrc.startsWith('/') || imageSrc.startsWith('http')) {
+            // URL absoluta o relativa
+            processedSrc = imageSrc;
+        } else {
+            // Asumir que es base64 sin prefijo
+            processedSrc = `data:image/jpeg;base64,${imageSrc}`;
+        }
+        
+        img.src = processedSrc;
+    });
 }
