@@ -120,10 +120,37 @@ try {
         PermissionManager::requirePermission($userData['role'], 'edit_product');
         
         $input = json_decode(file_get_contents('php://input'), true);
-        $id = $input['id'] ?? $_GET['id'] ?? null;
+        $id = $_GET['id'] ?? null;
         
         if (!$id) {
             throw new Exception('ID de producto requerido');
+        }
+        
+        if (!$input) {
+            throw new Exception('No se recibieron datos válidos para actualizar');
+        }
+        
+        // Validaciones básicas
+        $errors = [];
+        
+        if (empty($input['name'])) {
+            $errors[] = 'El nombre del producto es obligatorio';
+        }
+        
+        if (!isset($input['price']) || $input['price'] <= 0) {
+            $errors[] = 'El precio debe ser mayor a 0';
+        }
+        
+        if (!isset($input['stock']) || $input['stock'] < 0) {
+            $errors[] = 'El stock debe ser mayor o igual a 0';
+        }
+        
+        if (empty($input['category_id'])) {
+            $errors[] = 'La categoría es obligatoria';
+        }
+        
+        if (!empty($errors)) {
+            throw new Exception('Errores de validación: ' . implode(', ', $errors));
         }
         
         $productManager = new ProductManager();

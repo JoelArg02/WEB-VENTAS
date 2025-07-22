@@ -146,14 +146,20 @@ class ProductManager {
                      expiration_date = :expiration_date WHERE id = :id";
             
             $stmt = $this->conn->prepare($query);
+            
+            // Validar y preparar datos
+            $status = isset($data['status']) ? $data['status'] : 1;
+            $expiration_date = isset($data['expiration_date']) && !empty($data['expiration_date']) ? $data['expiration_date'] : null;
+            $image = isset($data['image']) && !empty($data['image']) ? $data['image'] : null;
+            
             $stmt->bindParam(':id', $id);
             $stmt->bindParam(':name', $data['name']);
             $stmt->bindParam(':price', $data['price']);
             $stmt->bindParam(':stock', $data['stock']);
-            $stmt->bindParam(':image', $data['image'] ?? null);
+            $stmt->bindParam(':image', $image);
             $stmt->bindParam(':category_id', $data['category_id']);
-            $stmt->bindParam(':status', $data['status']);
-            $stmt->bindParam(':expiration_date', $data['expiration_date'] ?? null);
+            $stmt->bindParam(':status', $status);
+            $stmt->bindParam(':expiration_date', $expiration_date);
             
             return $stmt->execute();
         } catch (Exception $e) {
