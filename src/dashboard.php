@@ -6,6 +6,7 @@ require_once 'components/UsersComponent.php';
 require_once 'components/ProductsComponent.php';
 require_once 'components/SalesComponent.php';
 require_once 'components/CategoriesComponent.php';
+require_once 'components/ReportsComponent.php';
 require_once 'components/ModalComponent.php';
 
 SessionManager::requireLogin();
@@ -20,6 +21,7 @@ $usersComponent = new UsersComponent($userData, $userPermissions);
 $productsComponent = new ProductsComponent($userData, $userPermissions);
 $salesComponent = new SalesComponent($userData, $userPermissions);
 $categoriesComponent = new CategoriesComponent($userData, $userPermissions);
+$reportsComponent = new ReportsComponent($userData, $userPermissions);
 $modalComponent = new ModalComponent($userPermissions);
 
 include 'includes/header.php';
@@ -107,12 +109,7 @@ include 'includes/header.php';
             <!-- Reports Tab -->
             <?php if (in_array('reports', array_column($visibleTabs, 'id'))): ?>
             <div id="reports-content" class="tab-content hidden">
-                <div class="space-y-6">
-                    <h2 class="text-2xl font-bold text-gray-800">Reportes del Sistema</h2>
-                    <div class="bg-white rounded-lg shadow p-6">
-                        <p class="text-gray-500">Módulo de reportes en desarrollo...</p>
-                    </div>
-                </div>
+                <?php echo $reportsComponent->render(); ?>
             </div>
             <?php endif; ?>
         </div>
@@ -438,7 +435,6 @@ include 'includes/header.php';
                 html += '</div></div>';
             }
             
-            // Ventas recientes
             if (data.recent_sales && data.recent_sales.length > 0) {
                 html += `
                     <div class="bg-white rounded-lg shadow p-6">
