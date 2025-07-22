@@ -182,11 +182,31 @@ function generateInventoryReport($reportsManager, $categoryId) {
 
 function generateQuickReportData($reportsManager, $quickReport, $dateFrom, $dateTo, $stockStatus, $expiring) {
     switch($quickReport) {
+        case 'daily_sales':
+            $dateFrom = $dateTo = date('Y-m-d');
+            return generateSalesReport($reportsManager, $dateFrom, $dateTo);
+            
+        case 'weekly_sales':
+            $dateFrom = date('Y-m-d', strtotime('-7 days'));
+            $dateTo = date('Y-m-d');
+            return generateSalesReport($reportsManager, $dateFrom, $dateTo);
+            
+        case 'monthly_sales':
+            $dateFrom = date('Y-m-01');
+            $dateTo = date('Y-m-t');
+            return generateSalesReport($reportsManager, $dateFrom, $dateTo);
+            
+        case 'yearly_sales':
+            $dateFrom = date('Y-01-01');
+            $dateTo = date('Y-12-31');
+            return generateSalesReport($reportsManager, $dateFrom, $dateTo);
+            
         case 'sales_today':
         case 'sales_month':
             return generateSalesReport($reportsManager, $dateFrom, $dateTo);
             
         case 'low_stock':
+        case 'out_of_stock':
             $inventory = $reportsManager->getLowStockProducts(10);
             return [
                 'summary' => [
@@ -199,21 +219,24 @@ function generateQuickReportData($reportsManager, $quickReport, $dateFrom, $date
                 'type' => 'inventory'
             ];
             
-        case 'expiring':
-            $inventory = $reportsManager->getExpiringProducts(30);
+        case 'product_performance':
+            $dateFrom = $dateFrom ?: date('Y-m-01');
+            $dateTo = $dateTo ?: date('Y-m-t');
+            return generateProductsReport($reportsManager, $dateFrom, $dateTo, null);
+            
+        case 'expiring_products':
+            $expiring = $reportsManager->getExpiringProducts();
             return [
                 'summary' => [
-                    'total_products' => count($inventory),
-                    'total_stock_value' => array_sum(array_column($inventory, 'stock_value')),
-                    'total_stock' => array_sum(array_column($inventory, 'stock')),
-                    'low_stock_count' => 0
+                    'total_products' => count($expiring),
+                    'expiring_soon' => count($expiring)
                 ],
-                'inventory' => $inventory,
-                'type' => 'inventory'
+                'products' => $expiring,
+                'type' => 'products'
             ];
             
         default:
-            throw new Exception('Reporte rápido no soportado');
+            throw new Exception('Tipo de reporte rápido no soportado: ' . $quickReport);
     }
 }
 
@@ -242,8 +265,58 @@ function generateCategoriesReport($reportsManager, $dateFrom, $dateTo) {
 }
 
 function handleReportExport($reportsManager) {
-    // TODO: Implementar exportación a PDF y Excel
-    http_response_code(501);
-    echo json_encode(['success' => false, 'message' => 'Exportación no implementada aún']);
+    $format = $_GET['format'] ?? '';
+    $type = $_GET['type'] ?? '';
+    
+    if (!$format || !$type) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Formato y tipo de reporte requeridos']);
+        return;
+    }
+    
+    try {
+        // Obtener parámetros del reporte
+        $dateFrom = $_GET['dateFrom'] ?? null;
+        $dateTo = $_GET['dateTo'] ?? null;
+        $categoryId = $_GET['categoryId'] ?? null;
+        $quickReport = $_GET['quickReport'] ?? null;
+        $stockStatus = $_GET['stockStatus'] ?? null;
+        $expiring = $_GET['expiring'] ?? false;
+        
+        // Generar datos del reporte
+        if ($quickReport) {
+            $data = generateQuickReportData($reportsManager, $quickReport, $dateFrom, $dateTo, $stockStatus, $expiring);
+        } else {
+            $data = generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId);
+        }
+        
+        if ($format === 'pdf') {
+            generatePDFExport($type, $data);
+        } elseif ($format === 'excel') {
+            generateExcelExport($type, $data);
+        } else {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Formato no soportado']);
+        }
+        
+    } catch (Exception $e) {
+        error_log("Error in export: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Error al generar la exportación']);
+    }
+}
+
+function generatePDFExport($type, $data) {
+    // Esta función será manejada por el frontend con jsPDF
+    // Devolvemos los datos para que el frontend los procese
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true, 'data' => $data, 'type' => $type]);
+}
+
+function generateExcelExport($type, $data) {
+    // Esta función será manejada por el frontend con SheetJS
+    // Devolvemos los datos para que el frontend los procese
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true, 'data' => $data, 'type' => $type]);
 }
 ?>
