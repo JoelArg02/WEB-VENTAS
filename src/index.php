@@ -3,7 +3,7 @@ require_once 'auth/session.php';
 
 // Si está logueado, redirigir al dashboard
 if (SessionManager::isLoggedIn()) {
-    header('Location: dashboard_functional.php');
+    header('Location: dashboard.php');
     exit();
 }
 

@@ -35,7 +35,6 @@ class CategoriesComponent {
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Nombre</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Estado</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Productos</th>
-                                <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Fecha Creación</th>
                                 <?php if ($this->permissions['edit_category'] || $this->permissions['delete_category']): ?>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Acciones</th>
                                 <?php endif; ?>
@@ -79,8 +78,7 @@ class CategoriesComponent {
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-2 text-sm text-gray-900">${category.name}</td>
                             <td class="px-4 py-2 text-sm"><span class="px-2 py-1 text-xs rounded-full ${statusClass}">${statusText}</span></td>
-                            <td class="px-4 py-2 text-sm text-gray-900">${category.product_count || 0}</td>
-                            <td class="px-4 py-2 text-sm text-gray-900">${formatDate(category.created_at)}</td>`;
+                            <td class="px-4 py-2 text-sm text-gray-900">${category.product_count || 0}</td>`;
                             
                     <?php if ($this->permissions['edit_category'] || $this->permissions['delete_category']): ?>
                     html += '<td class="px-4 py-2 text-sm">';

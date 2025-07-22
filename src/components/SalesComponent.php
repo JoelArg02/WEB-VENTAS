@@ -35,6 +35,8 @@ class SalesComponent {
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Cliente</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Producto</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Cantidad</th>
+                                <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Subtotal</th>
+                                <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">IVA</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Total</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Fecha</th>
                                 <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Vendedor</th>
@@ -76,7 +78,9 @@ class SalesComponent {
                             <td class="px-4 py-2 text-sm text-gray-900">${sale.client}</td>
                             <td class="px-4 py-2 text-sm text-gray-900">${sale.product_name}</td>
                             <td class="px-4 py-2 text-sm text-gray-900">${sale.quantity}</td>
-                            <td class="px-4 py-2 text-sm text-gray-900">${formatCurrency(sale.price * sale.quantity)}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${formatCurrency(sale.subtotal)}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${formatCurrency(sale.iva_amount)}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 font-semibold">${formatCurrency(sale.total_amount)}</td>
                             <td class="px-4 py-2 text-sm text-gray-900">${formatDate(sale.sale_date)}</td>
                             <td class="px-4 py-2 text-sm text-gray-900">${sale.user_name}</td>
                         </tr>`;

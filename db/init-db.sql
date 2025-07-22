@@ -31,6 +31,11 @@ CREATE TABLE sales (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     client VARCHAR(150) NOT NULL,
+    subtotal DECIMAL(10,2) NOT NULL,
+    iva_amount DECIMAL(10,2) NOT NULL,
+    total_amount DECIMAL(10,2) NOT NULL,
+    money_received DECIMAL(10,2) NOT NULL DEFAULT 0,
+    change_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
     sale_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     status TINYINT UNSIGNED NOT NULL DEFAULT 1,
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -42,6 +47,7 @@ CREATE TABLE sale_items (
     product_id INT NOT NULL,
     quantity INT NOT NULL DEFAULT 1,
     unit_price DECIMAL(10,2) NOT NULL,
+    
     FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id)
 ) ENGINE=InnoDB;

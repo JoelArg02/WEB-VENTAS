@@ -178,30 +178,231 @@ class ModalComponent {
                 <?php endif; ?>
                 
                 const content = `
-                    <div class="p-6">
+                    <div class="p-6 w-full max-w-5xl mx-auto">
                         <h2 class="text-xl font-bold mb-4">Nueva Venta</h2>
                         <form onsubmit="createSale(event)">
-                            <div class="space-y-4">
-                                <input type="text" name="client" placeholder="Nombre del cliente" required class="w-full border rounded-lg p-2">
-                                <select name="product_id" required class="w-full border rounded-lg p-2" onchange="updateSalePrice()">
-                                    <option value="">Seleccionar producto</option>
-                                    <!-- Se cargarán dinámicamente los productos -->
-                                </select>
-                                <input type="number" name="quantity" placeholder="Cantidad" value="1" min="1" required class="w-full border rounded-lg p-2" onchange="updateSalePrice()">
-                                <input type="number" name="price" step="0.01" placeholder="Precio unitario" required readonly class="w-full border rounded-lg p-2 bg-gray-100">
-                                <div class="text-lg font-semibold">
-                                    Total: <span id="saleTotal">$0</span>
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+                                    <input type="text" name="client" placeholder="Nombre del cliente" required class="w-full border rounded-lg p-3">
+                                </div>
+                                
+                                <!-- Lista de productos -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="flex justify-between items-center mb-4">
+                                        <h3 class="text-lg font-semibold">Productos</h3>
+                                        <button type="button" onclick="addProductLine()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">+ Agregar Producto</button>
+                                    </div>
+                                    <div id="productLines">
+                                        <!-- Los productos se agregan aquí dinámicamente -->
+                                    </div>
+                                </div>
+                                
+                                <!-- Resumen totales -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="flex justify-between text-sm mb-2">
+                                        <span>Subtotal:</span>
+                                        <span id="subtotalDisplay">$0</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm mb-2">
+                                        <span>IVA (15%):</span>
+                                        <span id="ivaDisplay">$0</span>
+                                    </div>
+                                    <div class="flex justify-between font-bold text-lg border-t pt-2">
+                                        <span>Total:</span>
+                                        <span id="totalDisplay">$0</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Dinero recibido (opcional)</label>
+                                    <input type="number" name="money_received" step="0.01" min="0" class="w-full border rounded-lg p-3" onchange="calculateChange()" placeholder="Dejar vacío si es venta a crédito">
+                                </div>
+                                
+                                <div id="changeSection" class="hidden bg-blue-50 p-4 rounded-lg">
+                                    <div class="flex justify-between font-bold text-lg">
+                                        <span>Vuelto:</span>
+                                        <span id="changeAmount" class="text-blue-600">$0</span>
+                                    </div>
+                                </div>
+                                
+                                <div id="insufficientMoney" class="hidden bg-red-50 p-4 rounded-lg">
+                                    <div class="text-red-600 font-semibold">
+                                        ⚠️ Dinero insuficiente. Faltan: <span id="missingAmount">$0</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="flex justify-end space-x-2 mt-6">
-                                <button type="button" onclick="closeModal()" class="px-4 py-2 text-gray-600 border rounded-lg">Cancelar</button>
-                                <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg">Registrar Venta</button>
+                            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                                <button type="button" onclick="closeModal()" class="px-6 py-3 text-gray-600 border rounded-lg hover:bg-gray-50">Cancelar</button>
+                                <button type="submit" id="submitSale" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700">Registrar Venta</button>
                             </div>
                         </form>
                     </div>`;
                 
                 openModal(content);
                 loadProductsForSale();
+                addProductLine(); // Agregar la primera línea de producto
+            }
+            
+            // Variable global para los productos seleccionados
+            window.saleProducts = [];
+            window.productCounter = 0;
+            
+            // Agregar línea de producto
+            function addProductLine() {
+                const productLines = document.getElementById('productLines');
+                const lineId = ++window.productCounter;
+                
+                const productLine = document.createElement('div');
+                productLine.className = 'border rounded-lg p-4 mb-4';
+                productLine.id = `product-line-${lineId}`;
+                
+                productLine.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div class="relative">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Producto</label>
+                            <input type="text" id="productSearch-${lineId}" placeholder="Buscar producto..." class="w-full border rounded-lg p-2" autocomplete="off">
+                            <div id="productDropdown-${lineId}" class="hidden absolute z-50 w-full max-h-48 overflow-y-auto bg-white border rounded-lg shadow-lg mt-1"></div>
+                            <input type="hidden" id="productId-${lineId}" name="products[${lineId}][product_id]">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cantidad</label>
+                            <input type="number" id="quantity-${lineId}" name="products[${lineId}][quantity]" value="1" min="1" class="w-full border rounded-lg p-2" onchange="updateLineTotal(${lineId})">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Precio</label>
+                            <input type="number" id="price-${lineId}" name="products[${lineId}][price]" readonly class="w-full border rounded-lg p-2 bg-gray-100" placeholder="$0">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Subtotal</label>
+                            <input type="text" id="lineSubtotal-${lineId}" readonly class="w-full border rounded-lg p-2 bg-gray-100" placeholder="$0">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="button" onclick="removeProductLine(${lineId})" class="w-full px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Eliminar</button>
+                        </div>
+                    </div>
+                `;
+                
+                productLines.appendChild(productLine);
+                setupProductSearchForLine(lineId);
+            }
+            
+            // Configurar búsqueda para una línea específica
+            function setupProductSearchForLine(lineId) {
+                const searchInput = document.getElementById(`productSearch-${lineId}`);
+                const dropdown = document.getElementById(`productDropdown-${lineId}`);
+                const hiddenInput = document.getElementById(`productId-${lineId}`);
+                
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    
+                    if (searchTerm.length < 1) {
+                        dropdown.classList.add('hidden');
+                        hiddenInput.value = '';
+                        clearLineData(lineId);
+                        return;
+                    }
+                    
+                    const filteredProducts = window.productsData.filter(product => 
+                        product.name.toLowerCase().includes(searchTerm)
+                    );
+                    
+                    showProductDropdownForLine(filteredProducts, dropdown, lineId);
+                });
+            }
+            
+            function showProductDropdownForLine(products, dropdown, lineId) {
+                if (products.length === 0) {
+                    dropdown.innerHTML = '<div class="p-3 text-gray-500">No se encontraron productos</div>';
+                } else {
+                    dropdown.innerHTML = products.map(product => `
+                        <div class="p-3 hover:bg-gray-100 cursor-pointer border-b" onclick="selectProductForLine(${lineId}, ${product.id}, '${product.name}', ${product.price}, ${product.stock})">
+                            <div class="font-medium">${product.name}</div>
+                            <div class="text-sm text-gray-600">${formatCurrency(product.price)} - Stock: ${product.stock}</div>
+                        </div>
+                    `).join('');
+                }
+                dropdown.classList.remove('hidden');
+            }
+            
+            function selectProductForLine(lineId, id, name, price, stock) {
+                const searchInput = document.getElementById(`productSearch-${lineId}`);
+                const dropdown = document.getElementById(`productDropdown-${lineId}`);
+                const hiddenInput = document.getElementById(`productId-${lineId}`);
+                
+                searchInput.value = name;
+                hiddenInput.value = id;
+                dropdown.classList.add('hidden');
+                
+                // Actualizar datos de la línea
+                window.saleProducts[lineId] = { id, name, price, stock };
+                updateLineTotal(lineId);
+            }
+            
+            function clearLineData(lineId) {
+                document.getElementById(`price-${lineId}`).value = '';
+                document.getElementById(`lineSubtotal-${lineId}`).value = '';
+                delete window.saleProducts[lineId];
+                updateSaleTotals();
+            }
+            
+            function updateLineTotal(lineId) {
+                const product = window.saleProducts[lineId];
+                if (!product) return;
+                
+                const quantity = parseInt(document.getElementById(`quantity-${lineId}`).value) || 0;
+                const price = product.price;
+                
+                // Actualizar campos
+                document.getElementById(`price-${lineId}`).value = price.toFixed(2);
+                
+                // Verificar stock
+                if (quantity > product.stock) {
+                    document.getElementById(`quantity-${lineId}`).value = product.stock;
+                    showError(`Solo hay ${product.stock} unidades disponibles de ${product.name}`);
+                }
+                
+                const finalQuantity = Math.min(quantity, product.stock);
+                const lineSubtotal = price * finalQuantity;
+                
+                document.getElementById(`lineSubtotal-${lineId}`).value = formatCurrency(lineSubtotal);
+                
+                updateSaleTotals();
+            }
+            
+            function removeProductLine(lineId) {
+                const line = document.getElementById(`product-line-${lineId}`);
+                if (line) {
+                    line.remove();
+                    delete window.saleProducts[lineId];
+                    updateSaleTotals();
+                }
+            }
+            
+            function updateSaleTotals() {
+                let totalSubtotal = 0;
+                
+                Object.keys(window.saleProducts).forEach(lineId => {
+                    const product = window.saleProducts[lineId];
+                    const quantityInput = document.getElementById(`quantity-${lineId}`);
+                    if (quantityInput && product) {
+                        const quantity = parseInt(quantityInput.value) || 0;
+                        totalSubtotal += product.price * quantity;
+                    }
+                });
+                
+                const ivaAmount = totalSubtotal * 0.15;
+                const total = totalSubtotal + ivaAmount;
+                
+                // Actualizar displays
+                document.getElementById('subtotalDisplay').textContent = formatCurrency(totalSubtotal);
+                document.getElementById('ivaDisplay').textContent = formatCurrency(ivaAmount);
+                document.getElementById('totalDisplay').textContent = formatCurrency(total);
+                
+                // Guardar el total para uso en cálculo de vuelto
+                window.saleTotal = total;
+                
+                calculateChange();
             }
             
             // Modal para crear categoría
@@ -240,7 +441,191 @@ class ModalComponent {
             
             // Cargar productos para el modal de ventas
             async function loadProductsForSale() {
-                // Función placeholder - implementar si es necesario
+                try {
+                    const result = await apiRequest('api/products.php');
+                    
+                    if (result.success) {
+                        window.productsData = result.data.filter(product => product.stock > 0);
+                        setupProductSearch();
+                    } else {
+                        showError('Error al cargar productos: ' + result.message);
+                    }
+                } catch (error) {
+                    showError('Error al cargar productos');
+                    console.error('Error loading products for sale:', error);
+                }
+            }
+            
+            // Configurar búsqueda de productos
+            function setupProductSearch() {
+                const searchInput = document.getElementById('productSearch');
+                const dropdown = document.getElementById('productDropdown');
+                const hiddenInput = document.querySelector('input[name="product_id"]');
+                
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    
+                    if (searchTerm.length < 1) {
+                        dropdown.classList.add('hidden');
+                        hiddenInput.value = '';
+                        clearProductData();
+                        return;
+                    }
+                    
+                    const filteredProducts = window.productsData.filter(product => 
+                        product.name.toLowerCase().includes(searchTerm)
+                    );
+                    
+                    showProductDropdown(filteredProducts, dropdown, hiddenInput, searchInput);
+                });
+                
+                // Ocultar dropdown cuando se hace clic fuera
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('#productSearch') && !e.target.closest('#productDropdown')) {
+                        dropdown.classList.add('hidden');
+                    }
+                });
+            }
+            
+            function showProductDropdown(products, dropdown, hiddenInput, searchInput) {
+                if (products.length === 0) {
+                    dropdown.innerHTML = '<div class="p-3 text-gray-500">No se encontraron productos</div>';
+                } else {
+                    dropdown.innerHTML = products.map(product => `
+                        <div class="p-3 hover:bg-gray-100 cursor-pointer border-b" onclick="selectProduct(${product.id}, '${product.name}', ${product.price}, ${product.stock})">
+                            <div class="font-medium">${product.name}</div>
+                            <div class="text-sm text-gray-600">${formatCurrency(product.price)} - Stock: ${product.stock}</div>
+                        </div>
+                    `).join('');
+                }
+                dropdown.classList.remove('hidden');
+            }
+            
+            function selectProduct(id, name, price, stock) {
+                const searchInput = document.getElementById('productSearch');
+                const dropdown = document.getElementById('productDropdown');
+                const hiddenInput = document.querySelector('input[name="product_id"]');
+                
+                searchInput.value = name;
+                hiddenInput.value = id;
+                dropdown.classList.add('hidden');
+                
+                // Actualizar campos del producto seleccionado
+                window.selectedProduct = { id, name, price, stock };
+                updateSalePrice();
+            }
+            
+            function clearProductData() {
+                document.querySelector('input[name="price"]').value = '';
+                document.getElementById('availableStock').value = '';
+                document.getElementById('subtotal').value = '';
+                clearTotals();
+                calculateChange();
+            }
+            
+            // Actualizar precio de la venta
+            function updateSalePrice() {
+                const quantityInput = document.querySelector('input[name="quantity"]');
+                const priceInput = document.querySelector('input[name="price"]');
+                const availableStockInput = document.getElementById('availableStock');
+                const subtotalInput = document.getElementById('subtotal');
+                
+                if (window.selectedProduct) {
+                    const unitPrice = window.selectedProduct.price;
+                    const availableStock = window.selectedProduct.stock;
+                    const quantity = parseInt(quantityInput.value) || 0;
+                    
+                    // Actualizar campos
+                    priceInput.value = unitPrice.toFixed(2);
+                    availableStockInput.value = availableStock;
+                    
+                    // Verificar si hay suficiente stock
+                    if (quantity > availableStock) {
+                        quantityInput.value = availableStock;
+                        showError(`Solo hay ${availableStock} unidades disponibles`);
+                    }
+                    
+                    // Calcular subtotal
+                    const finalQuantity = Math.min(quantity, availableStock);
+                    const subtotal = unitPrice * finalQuantity;
+                    
+                    subtotalInput.value = formatCurrency(subtotal);
+                    
+                    // Calcular totales con IVA
+                    calculateTotals(subtotal);
+                } else {
+                    clearProductData();
+                }
+                
+                // Recalcular vuelto si ya hay dinero ingresado
+                calculateChange();
+            }
+            
+            // Calcular totales con IVA
+            function calculateTotals(subtotal) {
+                const ivaRate = 0.15; // 15% de IVA
+                const ivaAmount = subtotal * ivaRate;
+                const total = subtotal + ivaAmount;
+                
+                // Actualizar displays
+                document.getElementById('subtotalDisplay').textContent = formatCurrency(subtotal);
+                document.getElementById('ivaDisplay').textContent = formatCurrency(ivaAmount);
+                document.getElementById('totalDisplay').textContent = formatCurrency(total);
+                
+                // Guardar el total para usar en cálculo de vuelto
+                window.saleTotal = total;
+            }
+            
+            // Limpiar totales
+            function clearTotals() {
+                document.getElementById('subtotalDisplay').textContent = '$0';
+                document.getElementById('ivaDisplay').textContent = '$0';
+                document.getElementById('totalDisplay').textContent = '$0';
+                window.saleTotal = 0;
+            }
+            
+            // Calcular vuelto
+            function calculateChange() {
+                const moneyReceivedInput = document.querySelector('input[name="money_received"]');
+                const changeSection = document.getElementById('changeSection');
+                const insufficientMoneySection = document.getElementById('insufficientMoney');
+                const changeAmountSpan = document.getElementById('changeAmount');
+                const missingAmountSpan = document.getElementById('missingAmount');
+                const submitButton = document.getElementById('submitSale');
+                
+                const moneyReceived = parseFloat(moneyReceivedInput.value) || 0;
+                const total = window.saleTotal || 0;
+                
+                // Si no hay dinero ingresado, es venta a crédito
+                if (moneyReceived === 0) {
+                    changeSection.classList.add('hidden');
+                    insufficientMoneySection.classList.add('hidden');
+                    submitButton.disabled = false; // Permitir venta a crédito
+                    return;
+                }
+                
+                if (total === 0) {
+                    changeSection.classList.add('hidden');
+                    insufficientMoneySection.classList.add('hidden');
+                    submitButton.disabled = true;
+                    return;
+                }
+                
+                if (moneyReceived >= total) {
+                    // Dinero suficiente - mostrar vuelto
+                    const change = moneyReceived - total;
+                    changeAmountSpan.textContent = formatCurrency(change);
+                    changeSection.classList.remove('hidden');
+                    insufficientMoneySection.classList.add('hidden');
+                    submitButton.disabled = false;
+                } else {
+                    // Dinero insuficiente - mostrar faltante
+                    const missing = total - moneyReceived;
+                    missingAmountSpan.textContent = formatCurrency(missing);
+                    insufficientMoneySection.classList.remove('hidden');
+                    changeSection.classList.add('hidden');
+                    submitButton.disabled = true;
+                }
             }
             
             // Funciones para manejar formularios
@@ -251,7 +636,7 @@ class ModalComponent {
                 const data = Object.fromEntries(formData.entries());
                 
                 try {
-                    const result = await apiRequest('/api/users.php', {
+                    const result = await apiRequest('api/users.php', {
                         method: 'POST',
                         body: JSON.stringify(data)
                     });
@@ -376,23 +761,115 @@ class ModalComponent {
             async function createSale(event) {
                 event.preventDefault();
                 
+                console.log('Creating sale...');
+                
                 const formData = new FormData(event.target);
                 const data = Object.fromEntries(formData.entries());
                 
+                console.log('Form data:', data);
+                
+                // Validar que hay al menos un producto
+                const validProducts = Object.keys(window.saleProducts).filter(lineId => {
+                    const product = window.saleProducts[lineId];
+                    const quantityInput = document.getElementById(`quantity-${lineId}`);
+                    return product && quantityInput && parseInt(quantityInput.value) > 0;
+                });
+                
+                if (validProducts.length === 0) {
+                    showError('Por favor agregue al menos un producto a la venta');
+                    return;
+                }
+                
+                // Validar stock para todos los productos
+                for (const lineId of validProducts) {
+                    const product = window.saleProducts[lineId];
+                    const quantity = parseInt(document.getElementById(`quantity-${lineId}`).value);
+                    
+                    if (quantity > product.stock) {
+                        showError(`Stock insuficiente para ${product.name}. Solo hay ${product.stock} unidades disponibles.`);
+                        return;
+                    }
+                }
+                
+                // Validar dinero si se ingresó
+                const moneyReceived = parseFloat(data.money_received) || 0;
+                const total = window.saleTotal;
+                
+                console.log('Money received:', moneyReceived, 'Total:', total);
+                
+                if (moneyReceived > 0 && moneyReceived < total) {
+                    showError('El dinero recibido es insuficiente para completar la venta.');
+                    return;
+                }
+                
+                // Calcular totales
+                let totalSubtotal = 0;
+                const products = [];
+                
+                validProducts.forEach(lineId => {
+                    const product = window.saleProducts[lineId];
+                    const quantity = parseInt(document.getElementById(`quantity-${lineId}`).value);
+                    const lineSubtotal = product.price * quantity;
+                    totalSubtotal += lineSubtotal;
+                    
+                    products.push({
+                        product_id: product.id,
+                        quantity: quantity,
+                        price: product.price,
+                        subtotal: lineSubtotal
+                    });
+                });
+                
+                const iva = totalSubtotal * 0.15;
+                const finalTotal = totalSubtotal + iva;
+                const change = moneyReceived > 0 ? moneyReceived - finalTotal : 0;
+                
+                // Preparar datos para enviar
+                const saleData = {
+                    client: data.client,
+                    products: products,
+                    subtotal: totalSubtotal,
+                    iva_amount: iva,
+                    total_amount: finalTotal,
+                    money_received: moneyReceived,
+                    change_amount: change
+                };
+                
+                console.log('Sale data to send:', saleData);
+                
                 try {
-                    const result = await apiRequest('/api/sales.php', {
+                    const submitButton = document.getElementById('submitSale');
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Procesando...';
+                    
+                    console.log('Making API request...');
+                    const result = await apiRequest('api/sales.php', {
                         method: 'POST',
-                        body: JSON.stringify(data)
+                        body: JSON.stringify(saleData)
                     });
                     
+                    console.log('API response:', result);
+                    
                     if (result.success) {
-                        showMessage('Venta registrada exitosamente', 'success');
+                        const message = moneyReceived > 0 
+                            ? `Venta registrada exitosamente. Vuelto: ${formatCurrency(change)}` 
+                            : 'Venta a crédito registrada exitosamente';
+                        showMessage(message, 'success');
                         closeModal();
                         if (typeof loadSalesData === 'function') loadSalesData();
                         if (typeof loadDashboardData === 'function') loadDashboardData();
+                    } else {
+                        showError('Error al registrar venta: ' + (result.message || 'Error desconocido'));
                     }
                 } catch (error) {
-                    showError('Error al registrar venta');
+                    console.error('Sale creation error:', error);
+                    showError('Error al registrar venta: ' + error.message);
+                } finally {
+                    const submitButton = document.getElementById('submitSale');
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Registrar Venta';
+                    }
                 }
             }
             
@@ -403,7 +880,7 @@ class ModalComponent {
                 const data = Object.fromEntries(formData.entries());
                 
                 try {
-                    const result = await apiRequest('/api/categories.php', {
+                    const result = await apiRequest('api/categories.php', {
                         method: 'POST',
                         body: JSON.stringify(data)
                     });

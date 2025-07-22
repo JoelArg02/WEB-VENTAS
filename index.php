@@ -3,7 +3,7 @@
 session_start();
 
 if (isset($_SESSION['user_id'])) {
-    header('Location: /src/dashboard_functional.php');
+    header('Location: /src/dashboard.php');
 } else {
     header('Location: /src/login.php');
 }
