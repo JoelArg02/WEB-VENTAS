@@ -1,246 +1,214 @@
 <?php
 header('Content-Type: application/json');
-require_once '../config/database.php';
-require_once '../models/ReportsManager.php';
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Método no permitido']);
+require_once __DIR__ . '/../auth/session.php';
+require_once __DIR__ . '/../models/ReportsManager.php';
+
+// Verificar autenticación
+if (!SessionManager::isLoggedIn()) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'No autorizado']);
+    exit;
+}
+
+// Manejar OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
     exit;
 }
 
 try {
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    if (!$input) {
-        throw new Exception('Datos de entrada inválidos');
-    }
-    
-    $type = $input['type'] ?? '';
-    $format = $input['format'] ?? 'pdf';
-    $filters = $input['filters'] ?? [];
-    
     $reportsManager = new ReportsManager();
+    $method = $_SERVER['REQUEST_METHOD'];
     
-    switch ($type) {
-        case 'sales':
-            $data = $reportsManager->getDetailedSales(
-                $filters['from'] ?? null, 
-                $filters['to'] ?? null
-            );
-            generateReportFile($data, $format, 'Reporte de Ventas', 'ventas');
+    switch ($method) {
+        case 'POST':
+            handleReportGeneration($reportsManager);
             break;
-            
-        case 'products':
-            $data = $reportsManager->getBestSellingProducts(
-                $filters['from'] ?? null, 
-                $filters['to'] ?? null
-            );
-            generateReportFile($data, $format, 'Reporte de Productos', 'productos');
+        case 'GET':
+            handleReportExport($reportsManager);
             break;
-            
-        case 'low_stock':
-            $data = $reportsManager->getLowStockProducts();
-            generateReportFile($data, $format, 'Reporte de Stock Bajo', 'stock_bajo');
-            break;
-            
-        case 'categories':
-            $data = $reportsManager->getCategoriesStats(
-                $filters['from'] ?? null, 
-                $filters['to'] ?? null
-            );
-            generateReportFile($data, $format, 'Reporte por Categorías', 'categorias');
-            break;
-            
-        case 'sellers':
-            $data = $reportsManager->getSellersStats(
-                $filters['from'] ?? null, 
-                $filters['to'] ?? null
-            );
-            generateReportFile($data, $format, 'Reporte de Vendedores', 'vendedores');
-            break;
-            
-        case 'expiring':
-            $data = $reportsManager->getExpiringProducts();
-            generateReportFile($data, $format, 'Productos Próximos a Caducar', 'proximos_caducar');
-            break;
-            
         default:
-            throw new Exception('Tipo de reporte no válido');
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Método no permitido']);
+            break;
     }
     
 } catch (Exception $e) {
-    error_log("Error in reports API: " . $e->getMessage());
+    error_log("Error in reports.php: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => 'Error interno del servidor']);
 }
 
-function generateReportFile($data, $format, $title, $filename) {
-    if ($format === 'pdf') {
-        generatePDF($data, $title, $filename);
-    } elseif ($format === 'excel') {
-        generateExcel($data, $title, $filename);
-    }
-}
-
-function generatePDF($data, $title, $filename) {
-    // Generar PDF simple usando HTML y CSS
-    $html = generatePDFContent($data, $title);
+function handleReportGeneration($reportsManager) {
+    $input = json_decode(file_get_contents('php://input'), true);
     
-    // Headers para forzar descarga como PDF
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: attachment; filename="' . $filename . '_' . date('Y-m-d') . '.pdf"');
-    header('Cache-Control: private, max-age=0, must-revalidate');
-    header('Pragma: public');
-    
-    // Usar wkhtmltopdf o similar, por ahora HTML con estilo PDF
-    echo $html;
-    exit;
-}
-
-function generateExcel($data, $title, $filename) {
-    // Headers para Excel
-    header('Content-Type: application/vnd.ms-excel; charset=utf-8');
-    header('Content-Disposition: attachment; filename="' . $filename . '_' . date('Y-m-d') . '.xls"');
-    header('Cache-Control: private, max-age=0, must-revalidate');
-    header('Pragma: public');
-    
-    // Generar contenido Excel básico
-    echo "\xEF\xBB\xBF"; // BOM para UTF-8
-    echo generateExcelContent($data, $title);
-    exit;
-}
-
-function generateHTMLTable($data, $title) {
-    if (empty($data)) {
-        return "<p>No hay datos disponibles para mostrar.</p>";
+    if (!$input) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Datos inválidos']);
+        return;
     }
     
-    $html = "<table>";
+    $type = $input['type'] ?? '';
+    $dateFrom = $input['dateFrom'] ?? null;
+    $dateTo = $input['dateTo'] ?? null;
+    $categoryId = $input['categoryId'] ?? null;
     
-    // Headers de la tabla
-    $html .= "<thead><tr>";
-    $firstRow = reset($data);
-    foreach (array_keys($firstRow) as $header) {
-        $html .= "<th>" . ucfirst(str_replace('_', ' ', $header)) . "</th>";
-    }
-    $html .= "</tr></thead>";
-    
-    // Datos de la tabla
-    $html .= "<tbody>";
-    foreach ($data as $row) {
-        $html .= "<tr>";
-        foreach ($row as $cell) {
-            $html .= "<td>" . htmlspecialchars($cell ?? '') . "</td>";
-        }
-        $html .= "</tr>";
-    }
-    $html .= "</tbody>";
-    
-    $html .= "</table>";
-    
-    return $html;
-}
-
-function generatePDFContent($data, $title) {
-    $html = "<!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset='UTF-8'>
-        <title>$title</title>
-        <style>
-            @page { margin: 2cm; }
-            body { font-family: Arial, sans-serif; font-size: 12px; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-            .title { font-size: 20px; font-weight: bold; color: #333; margin-bottom: 10px; }
-            .date { font-size: 10px; color: #666; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; font-size: 10px; }
-            th { background-color: #f2f2f2; font-weight: bold; }
-            .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #666; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
-        </style>
-    </head>
-    <body>
-        <div class='header'>
-            <div class='title'>$title</div>
-            <div class='date'>Generado el: " . date('d/m/Y H:i:s') . "</div>
-        </div>";
-    
-    $html .= generateHTMLTable($data, $title);
-    
-    $html .= "
-        <div class='footer'>
-            <p>Sistema de Ventas - Reporte generado automáticamente</p>
-        </div>
-    </body>
-    </html>";
-    
-    return $html;
-}
-
-function generateExcelContent($data, $title) {
-    if (empty($data)) {
-        return "<table><tr><td>No hay datos disponibles</td></tr></table>";
+    // Validar tipo de reporte
+    $validTypes = ['sales', 'products', 'inventory', 'categories'];
+    if (!in_array($type, $validTypes)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Tipo de reporte inválido']);
+        return;
     }
     
-    $content = "<table border='1'>";
-    $content .= "<tr><td colspan='" . count(array_keys(reset($data))) . "' style='text-align:center;font-weight:bold;font-size:16px;'>$title</td></tr>";
-    $content .= "<tr><td colspan='" . count(array_keys(reset($data))) . "' style='text-align:center;'>Generado el: " . date('d/m/Y H:i:s') . "</td></tr>";
-    $content .= "<tr><td></td></tr>"; // Espacio
-    
-    // Headers
-    $content .= "<tr style='background-color:#f2f2f2;font-weight:bold;'>";
-    $firstRow = reset($data);
-    foreach (array_keys($firstRow) as $header) {
-        $content .= "<td>" . ucfirst(str_replace('_', ' ', $header)) . "</td>";
-    }
-    $content .= "</tr>";
-    
-    // Datos
-    foreach ($data as $row) {
-        $content .= "<tr>";
-        foreach ($row as $cell) {
-            $content .= "<td>" . htmlspecialchars($cell ?? '') . "</td>";
-        }
-        $content .= "</tr>";
-    }
-    
-    $content .= "</table>";
-    return $content;
-}
-?>
-                
-            case 'users':
-                if (PermissionManager::hasPermission($userData['role'], 'users')) {
-                    $userManager = new UserManager();
-                    $users = $userManager->getAllUsers();
-                    $reportData = [
-                        'total_users' => count($users),
-                        'users_by_role' => []
-                    ];
-                    
-                    // Contar usuarios por rol
-                    $roleCount = [];
-                    foreach ($users as $user) {
-                        $role = $user['role'];
-                        $roleCount[$role] = ($roleCount[$role] ?? 0) + 1;
-                    }
-                    $reportData['users_by_role'] = $roleCount;
-                }
-                break;
-        }
-        
-        echo json_encode([
-            'success' => true,
-            'data' => $reportData
-        ]);
-        
+    try {
+        $data = generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId);
+        echo json_encode(['success' => true, 'data' => $data]);
     } catch (Exception $e) {
-        echo json_encode([
-            'success' => false,
-            'message' => $e->getMessage()
-        ]);
+        error_log("Error generating report: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Error al generar el reporte']);
     }
+}
+
+function generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId) {
+    switch ($type) {
+        case 'sales':
+            return generateSalesReport($reportsManager, $dateFrom, $dateTo);
+            
+        case 'products':
+            return generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId);
+            
+        case 'inventory':
+            return generateInventoryReport($reportsManager, $categoryId);
+            
+        case 'categories':
+            return generateCategoriesReport($reportsManager, $dateFrom, $dateTo);
+            
+        default:
+            throw new Exception('Tipo de reporte no soportado');
+    }
+}
+
+function generateSalesReport($reportsManager, $dateFrom, $dateTo) {
+    // Obtener resumen de ventas
+    $summary = $reportsManager->getBusinessSummary($dateFrom, $dateTo);
+    
+    // Obtener ventas detalladas
+    $details = $reportsManager->getDetailedSales($dateFrom, $dateTo);
+    
+    return [
+        'summary' => $summary,
+        'details' => $details,
+        'type' => 'sales',
+        'period' => [
+            'from' => $dateFrom,
+            'to' => $dateTo
+        ]
+    ];
+}
+
+function generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId) {
+    // Obtener productos más vendidos
+    $bestSelling = $reportsManager->getBestSellingProducts($dateFrom, $dateTo, 50);
+    
+    // Filtrar por categoría si se especifica
+    if ($categoryId) {
+        $bestSelling = array_filter($bestSelling, function($product) use ($categoryId) {
+            // Verificar si existe category_id en el producto o usar el name de la categoría
+            return (isset($product['category_id']) && $product['category_id'] == $categoryId) ||
+                   (isset($product['category_name']) && !empty($product['category_name']));
+        });
+        $bestSelling = array_values($bestSelling); // Reindexar el array
+    }
+    
+    // Calcular resumen
+    $totalProducts = count($bestSelling);
+    $totalSold = array_sum(array_column($bestSelling, 'total_sold'));
+    $totalRevenue = array_sum(array_column($bestSelling, 'total_revenue'));
+    
+    return [
+        'summary' => [
+            'total_products' => $totalProducts,
+            'total_sold' => $totalSold,
+            'total_revenue' => $totalRevenue
+        ],
+        'products' => $bestSelling,
+        'type' => 'products',
+        'period' => [
+            'from' => $dateFrom,
+            'to' => $dateTo
+        ],
+        'category_id' => $categoryId
+    ];
+}
+
+function generateInventoryReport($reportsManager, $categoryId) {
+    // Obtener reporte completo de inventario
+    $inventory = $reportsManager->getInventoryReport();
+    
+    // Filtrar por categoría si se especifica
+    if ($categoryId) {
+        $inventory = array_filter($inventory, function($product) use ($categoryId) {
+            // Verificar si existe category_id en el producto o usar el name de la categoría
+            return (isset($product['category_id']) && $product['category_id'] == $categoryId) ||
+                   (isset($product['category_name']) && !empty($product['category_name']));
+        });
+        $inventory = array_values($inventory); // Reindexar el array
+    }
+    
+    // Calcular resumen
+    $totalProducts = count($inventory);
+    $totalStockValue = array_sum(array_column($inventory, 'stock_value'));
+    $totalStock = array_sum(array_column($inventory, 'stock'));
+    $lowStockCount = count(array_filter($inventory, function($product) {
+        return $product['stock'] <= 10;
+    }));
+    
+    return [
+        'summary' => [
+            'total_products' => $totalProducts,
+            'total_stock_value' => $totalStockValue,
+            'total_stock' => $totalStock,
+            'low_stock_count' => $lowStockCount
+        ],
+        'inventory' => $inventory,
+        'type' => 'inventory',
+        'category_id' => $categoryId
+    ];
+}
+
+function generateCategoriesReport($reportsManager, $dateFrom, $dateTo) {
+    // Obtener estadísticas por categorías
+    $categories = $reportsManager->getCategoriesStats($dateFrom, $dateTo);
+    
+    // Calcular resumen
+    $totalCategories = count($categories);
+    $totalRevenue = array_sum(array_column($categories, 'total_revenue'));
+    $totalProducts = array_sum(array_column($categories, 'total_products'));
+    
+    return [
+        'summary' => [
+            'total_categories' => $totalCategories,
+            'total_revenue' => $totalRevenue,
+            'total_products' => $totalProducts
+        ],
+        'categories' => $categories,
+        'type' => 'categories',
+        'period' => [
+            'from' => $dateFrom,
+            'to' => $dateTo
+        ]
+    ];
+}
+
+function handleReportExport($reportsManager) {
+    // TODO: Implementar exportación a PDF y Excel
+    http_response_code(501);
+    echo json_encode(['success' => false, 'message' => 'Exportación no implementada aún']);
 }
 ?>

@@ -20,7 +20,8 @@ class PermissionManager {
                 'edit_category' => true,
                 'delete_category' => true,
                 'create_sale' => true,
-                'view_reports' => true
+                'view_reports' => true,
+                'export_reports' => true
             ],
             'vendedor' => [
                 'dashboard' => true,
@@ -28,7 +29,7 @@ class PermissionManager {
                 'products' => true, // Solo lectura
                 'categories' => true, // Solo lectura
                 'sales' => true,
-                'reports' => false,
+                'reports' => true,
                 'create_user' => false,
                 'edit_user' => false,
                 'delete_user' => false,
@@ -39,7 +40,8 @@ class PermissionManager {
                 'edit_category' => false,
                 'delete_category' => false,
                 'create_sale' => true,
-                'view_reports' => false
+                'view_reports' => true,
+                'export_reports' => false
             ],
             'bodega' => [
                 'dashboard' => true,
@@ -47,7 +49,7 @@ class PermissionManager {
                 'products' => true,
                 'categories' => true,
                 'sales' => false,
-                'reports' => true, // Solo reportes de inventario
+                'reports' => true,
                 'create_user' => false,
                 'edit_user' => false,
                 'delete_user' => false,
@@ -58,7 +60,8 @@ class PermissionManager {
                 'edit_category' => true,
                 'delete_category' => true,
                 'create_sale' => false,
-                'view_reports' => true
+                'view_reports' => true,
+                'export_reports' => false
             ]
         ];
         

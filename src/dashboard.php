@@ -725,6 +725,11 @@ include 'includes/header.php';
         });
     </script>
 
+    <!-- JavaScript específico para reportes -->
+    <?php if (in_array('reports', array_column($visibleTabs, 'id'))): ?>
+    <script src="components/reports.js"></script>
+    <?php endif; ?>
+
     <?php echo $modalComponent->render(); ?>
 </body>
 </html>
