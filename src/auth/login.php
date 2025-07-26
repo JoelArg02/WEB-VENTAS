@@ -37,10 +37,10 @@ $title = 'Iniciar Sesión';
 include '../includes/header.php';
 ?>
 
-<body class="min-h-screen bg-gray-200 flex items-center justify-center p-4">
+<body class="min-h-screen flex items-center justify-center p-4" style="background: url('/assets/bg.png') no-repeat center center fixed; background-size: cover;">
     <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-sm">
-        <div class="w-20 h-20 bg-gray-300 rounded-full mx-auto mb-6 flex items-center justify-center text-gray-600">
-            LOGO
+        <div class="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center bg-white">
+            <img src="/assets/logo.png" alt="Logo" class="w-full h-full object-contain rounded-full">
         </div>
         
         <h1 class="text-2xl font-bold text-center mb-6">Iniciar Sesión</h1>

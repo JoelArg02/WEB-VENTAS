@@ -21,6 +21,7 @@ CREATE TABLE products (
     price DECIMAL(10,2) NOT NULL,
     stock INT DEFAULT 0,
     image LONGTEXT,
+    sku VARCHAR(244),
     category_id INT,
     status TINYINT UNSIGNED NOT NULL DEFAULT 1,
     expiration_date DATE,
@@ -61,11 +62,4 @@ INSERT INTO users (name, email, phone, password, role, status) VALUES
 
 -- Insertar categorías de ejemplo
 INSERT INTO categories (name, status) VALUES
-('Bebidas', 1),
-('Comida', 1),
-('Snacks', 1),
-('Lácteos', 1),
-('Panadería', 1),
-('Limpieza', 1),
-('Cuidado Personal', 1),
-('Electrodomésticos', 1);
+('Bebidas', 1);

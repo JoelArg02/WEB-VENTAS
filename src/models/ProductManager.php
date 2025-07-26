@@ -1,15 +1,18 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 
-class ProductManager {
+class ProductManager
+{
     private $conn;
-    
-    public function __construct() {
+
+    public function __construct()
+    {
         $database = new Database();
         $this->conn = $database->getConnection();
     }
-    
-    public function getAllProducts() {
+
+    public function getAllProducts()
+    {
         try {
             $query = "SELECT p.*, c.name as category_name 
                      FROM products p 
@@ -22,8 +25,9 @@ class ProductManager {
             throw new Exception('Error al obtener productos: ' . $e->getMessage());
         }
     }
-    
-    public function getLowStockProducts($minStock = 10) {
+
+    public function getLowStockProducts($minStock = 10)
+    {
         try {
             $query = "SELECT p.*, c.name as category_name 
                      FROM products p 
@@ -38,8 +42,9 @@ class ProductManager {
             throw new Exception('Error al obtener productos con stock bajo: ' . $e->getMessage());
         }
     }
-    
-    public function getExpiringProducts($days = 30) {
+
+    public function getExpiringProducts($days = 30)
+    {
         try {
             $query = "SELECT p.*, c.name as category_name,
                      DATEDIFF(p.expiration_date, NOW()) as days_until_expiration
@@ -58,8 +63,9 @@ class ProductManager {
             throw new Exception('Error al obtener productos próximos a caducar: ' . $e->getMessage());
         }
     }
-    
-    public function getProductById($id) {
+
+    public function getProductById($id)
+    {
         try {
             $query = "SELECT p.*, c.name as category_name 
                      FROM products p 
@@ -73,27 +79,31 @@ class ProductManager {
             throw new Exception('Error al obtener producto: ' . $e->getMessage());
         }
     }
-    
-    public function createProduct($data) {
+
+    public function createProduct($data)
+    {
         try {
-            // Verificar que la conexión esté activa
             if (!$this->conn) {
                 throw new Exception('No hay conexión a la base de datos');
             }
-            
-            $query = "INSERT INTO products (name, price, stock, image, category_id, status, expiration_date) 
-                     VALUES (:name, :price, :stock, :image, :category_id, :status, :expiration_date)";
-            
+
+            $query = "INSERT INTO products (name, price, stock, image, sku, category_id, status, expiration_date) 
+          VALUES (:name, :price, :stock, :image, :sku, :category_id, :status, :expiration_date)";
+
+
             $stmt = $this->conn->prepare($query);
-            
+
             if (!$stmt) {
                 throw new Exception('Error al preparar la consulta SQL: ' . implode(', ', $this->conn->errorInfo()));
             }
-            
+
             $image = isset($data['image']) && !empty($data['image']) ? $data['image'] : null;
             $status = isset($data['status']) ? $data['status'] : 1;
             $expiration_date = isset($data['expiry_date']) && !empty($data['expiry_date']) ? $data['expiry_date'] : null;
-            
+
+            $sku = isset($data['sku']) && !empty($data['sku']) ? $data['sku'] : null;
+
+            $stmt->bindParam(':sku', $sku);
             $stmt->bindParam(':name', $data['name']);
             $stmt->bindParam(':price', $data['price']);
             $stmt->bindParam(':stock', $data['stock']);
@@ -101,20 +111,19 @@ class ProductManager {
             $stmt->bindParam(':category_id', $data['category_id']);
             $stmt->bindParam(':status', $status);
             $stmt->bindParam(':expiration_date', $expiration_date);
-            
+
             $result = $stmt->execute();
-            
+
             if (!$result) {
                 $errorInfo = $stmt->errorInfo();
                 throw new Exception('Error al ejecutar la consulta: ' . $errorInfo[2]);
             }
-            
+
             return $result;
         } catch (PDOException $e) {
             $errorCode = $e->getCode();
             $errorMessage = $e->getMessage();
-            
-            // Errores específicos de MySQL/PDO
+
             if ($errorCode == 23000 && strpos($errorMessage, 'Duplicate entry') !== false) {
                 if (strpos($errorMessage, 'name') !== false) {
                     throw new Exception('Ya existe un producto con este nombre');
@@ -138,20 +147,24 @@ class ProductManager {
             throw new Exception('Error al crear producto: ' . $e->getMessage());
         }
     }
-    
-    public function updateProduct($id, $data) {
+
+    public function updateProduct($id, $data)
+    {
         try {
             $query = "UPDATE products SET name = :name, price = :price, stock = :stock, 
-                     image = :image, category_id = :category_id, status = :status, 
-                     expiration_date = :expiration_date WHERE id = :id";
-            
+          image = :image, sku = :sku, category_id = :category_id, status = :status, 
+          expiration_date = :expiration_date WHERE id = :id";
+
+
             $stmt = $this->conn->prepare($query);
-            
+
             // Validar y preparar datos
             $status = isset($data['status']) ? $data['status'] : 1;
             $expiration_date = isset($data['expiration_date']) && !empty($data['expiration_date']) ? $data['expiration_date'] : null;
             $image = isset($data['image']) && !empty($data['image']) ? $data['image'] : null;
-            
+            $sku = isset($data['sku']) && !empty($data['sku']) ? $data['sku'] : null;
+            $stmt->bindParam(':sku', $sku);
+
             $stmt->bindParam(':id', $id);
             $stmt->bindParam(':name', $data['name']);
             $stmt->bindParam(':price', $data['price']);
@@ -160,14 +173,15 @@ class ProductManager {
             $stmt->bindParam(':category_id', $data['category_id']);
             $stmt->bindParam(':status', $status);
             $stmt->bindParam(':expiration_date', $expiration_date);
-            
+
             return $stmt->execute();
         } catch (Exception $e) {
             throw new Exception('Error al actualizar producto: ' . $e->getMessage());
         }
     }
-    
-    public function updateStock($id, $newStock) {
+
+    public function updateStock($id, $newStock)
+    {
         try {
             $query = "UPDATE products SET stock = :stock WHERE id = :id";
             $stmt = $this->conn->prepare($query);
@@ -178,8 +192,9 @@ class ProductManager {
             throw new Exception('Error al actualizar stock: ' . $e->getMessage());
         }
     }
-    
-    public function deleteProduct($id) {
+
+    public function deleteProduct($id)
+    {
         try {
             $query = "DELETE FROM products WHERE id = :id";
             $stmt = $this->conn->prepare($query);
@@ -190,4 +205,3 @@ class ProductManager {
         }
     }
 }
-?>

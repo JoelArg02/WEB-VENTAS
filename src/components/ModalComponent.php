@@ -108,6 +108,13 @@ class ModalComponent
                                                placeholder="0" required>
                                     </div>
                                     <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-3">Lector</label>
+                                        <input type="text" name="sku"
+                                            class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
+                                            placeholder="Código de inventario (opcional)">
+                                    </div>
+
+                                    <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-3">Categoría *</label>
                                         <select name="category_id" 
                                                 class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" required>
@@ -289,7 +296,8 @@ class ModalComponent
                             <button type="button" onclick="removeProductLine(${lineId})" class="w-full px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Eliminar</button>
                         </div>
                     </div>
-                `;                productLines.appendChild(productLine);
+                `;
+                productLines.appendChild(productLine);
                 setupProductSearchForLine(lineId);
             }
 
@@ -310,7 +318,8 @@ class ModalComponent
                     }
 
                     const filteredProducts = window.productsData.filter(product =>
-                        product.name.toLowerCase().includes(searchTerm)
+                        product.name.toLowerCase().includes(searchTerm) ||
+                        (product.sku && product.sku.toLowerCase().includes(searchTerm))
                     );
 
                     showProductDropdownForLine(filteredProducts, dropdown, lineId);
@@ -332,7 +341,7 @@ class ModalComponent
                                             </svg>
                                          </div>`;
                         }
-                        
+
                         return `
                             <div class="p-3 hover:bg-gray-100 cursor-pointer border-b flex items-center" onclick="selectProductForLine(${lineId}, ${product.id}, '${product.name}', ${product.price}, ${product.stock}, '${product.image || ''}')">
                                 ${imageHtml}
@@ -383,14 +392,14 @@ class ModalComponent
             function clearLineData(lineId) {
                 document.getElementById(`price-${lineId}`).value = '';
                 document.getElementById(`lineSubtotal-${lineId}`).value = '';
-                
+
                 // Ocultar imagen del producto
                 const productImage = document.getElementById(`productImage-${lineId}`);
                 if (productImage) {
                     productImage.classList.add('hidden');
                     productImage.src = '';
                 }
-                
+
                 delete window.saleProducts[lineId];
                 updateSaleTotals();
             }
@@ -500,18 +509,18 @@ class ModalComponent
 
                     // Obtener datos del producto
                     const productResult = await apiRequest(`api/products.php?id=${id}`);
-                    
+
                     if (!productResult.success) {
                         showError('Error al cargar el producto: ' + productResult.message);
                         return;
                     }
-                    
+
                     const product = productResult.data;
 
                     // Cargar categorías
                     const categoriesResult = await apiRequest('api/categories.php?active_only=1');
                     let categoriesOptions = '<option value="">Seleccione una categoría</option>';
-                    
+
                     if (categoriesResult.success && categoriesResult.data) {
                         categoriesResult.data.forEach(category => {
                             const selected = category.id == product.category_id ? 'selected' : '';
@@ -539,6 +548,12 @@ class ModalComponent
                                         <input type="number" name="price" step="0.01" min="0" value="${product.price}"
                                                class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
                                                placeholder="0.00" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-3">SKU</label>
+                                        <input type="text" name="sku" value="${product.sku || ''}"
+                                               class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
+                                               placeholder="Código de inventario (opcional)">
                                     </div>
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-3">Stock *</label>
@@ -840,6 +855,7 @@ class ModalComponent
                 const productData = {
                     name: formData.get('name').trim(),
                     price: parseFloat(formData.get('price')),
+                    sku: formData.get('sku') || null,
                     stock: parseInt(formData.get('stock')),
                     category_id: formData.get('category_id') || null,
                     expiry_date: formData.get('expiry_date') || null,
@@ -1086,6 +1102,7 @@ class ModalComponent
                     name: formData.get('name').trim(),
                     price: parseFloat(formData.get('price')),
                     stock: parseInt(formData.get('stock')),
+                    sku: formData.get('sku') || null,
                     category_id: formData.get('category_id') || null,
                     expiration_date: formData.get('expiration_date') || null,
                     image: document.getElementById('editImageBase64')?.value || null,

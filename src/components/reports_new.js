@@ -1,71 +1,71 @@
 let currentReportData = null;
 let currentReportType = 'sales';
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     if (document.getElementById('reportFilters')) {
         initializeReports();
     }
 });
 
 function initializeReports() {
-    console.log('Initializing reports...');
-    
+
+
     // Renderizar filtros iniciales
     const filtersContainer = document.getElementById('reportFilters');
     if (filtersContainer) {
         filtersContainer.innerHTML = ReportsFilters.renderFilters(currentReportType);
     }
-    
+
     // Renderizar reportes rápidos
     const quickReportsContainer = document.getElementById('quickReports');
     if (quickReportsContainer) {
         quickReportsContainer.innerHTML = ReportsFilters.renderQuickReports();
     }
-    
+
     // Configurar fechas por defecto (último mes)
     const today = new Date();
     const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-    
+
     const dateFromInput = document.getElementById('dateFrom');
     const dateToInput = document.getElementById('dateTo');
-    
+
     if (dateFromInput && dateToInput) {
         dateFromInput.value = formatDateForInput(lastMonth);
         dateToInput.value = formatDateForInput(endOfLastMonth);
     }
-    
+
     // Cargar datos necesarios
     loadCategories();
     loadSellers();
-    
-    console.log('Reports initialized successfully');
+
+
 }
 
 // Cambiar tipo de reporte
 function changeReportType() {
     const reportTypeSelect = document.getElementById('reportType');
     if (!reportTypeSelect) return;
-    
+
     currentReportType = reportTypeSelect.value;
-    console.log('Report type changed to:', currentReportType);
-    
+
+
     // Actualizar filtros según el nuevo tipo
     const filtersContainer = document.getElementById('reportFilters');
     if (filtersContainer) {
         filtersContainer.innerHTML = ReportsFilters.renderFilters(currentReportType);
     }
-    
+
     // Limpiar contenido previo
     const reportContent = document.getElementById('reportContent');
     if (reportContent) {
         reportContent.innerHTML = getEmptyReportMessage();
     }
-    
+
     // Recargar datos necesarios
     loadCategories();
     loadSellers();
-    
+
     // Resetear datos actuales
     currentReportData = null;
 }
@@ -84,22 +84,22 @@ function clearFilters() {
     const today = new Date();
     const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-    
+
     const dateFromInput = document.getElementById('dateFrom');
     const dateToInput = document.getElementById('dateTo');
-    
+
     if (dateFromInput && dateToInput) {
         dateFromInput.value = formatDateForInput(lastMonth);
         dateToInput.value = formatDateForInput(endOfLastMonth);
     }
-    
+
     // Limpiar otros filtros específicos
     const categorySelect = document.getElementById('categoryId');
     if (categorySelect) categorySelect.value = '';
-    
+
     const sellerSelect = document.getElementById('sellerId');
     if (sellerSelect) sellerSelect.value = '';
-    
+
     // Limpiar contenido del reporte
     document.getElementById('reportContent').innerHTML = getEmptyReportMessage();
     currentReportData = null;
@@ -111,16 +111,16 @@ async function generateReport() {
     const dateFrom = document.getElementById('dateFrom').value;
     const dateTo = document.getElementById('dateTo').value;
     const categoryId = document.getElementById('categoryId')?.value || '';
-    
+
     if (!dateFrom || !dateTo) {
         if (typeof showMessage === 'function') {
             showMessage('Por favor selecciona las fechas', 'warning');
         }
         return;
     }
-    
+
     showReportLoading();
-    
+
     try {
         const response = await fetch('../api/reports.php', {
             method: 'POST',
@@ -134,9 +134,9 @@ async function generateReport() {
                 category_id: categoryId
             })
         });
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             currentReportData = data.data;
             renderReport(reportType, data.data, { dateFrom, dateTo, categoryId });
@@ -145,12 +145,12 @@ async function generateReport() {
         }
     } catch (error) {
         console.error('Error:', error);
-        
+
         // Usar el sistema de toast para errores de conexión
         if (typeof showMessage === 'function') {
             showMessage('Error de conexión al generar el reporte', 'error');
         }
-        
+
         showReportError('Error de conexión al generar el reporte');
     }
 }
@@ -158,7 +158,7 @@ async function generateReport() {
 // Renderizar reporte usando las clases modulares
 function renderReport(type, data, filters) {
     const container = document.getElementById('reportContent');
-    
+
     switch (type) {
         case 'sales':
             container.innerHTML = ReportsRenderer.renderSalesReport(data, filters);
@@ -182,12 +182,12 @@ async function loadCategories() {
     try {
         const response = await fetch('../api/categories.php');
         const data = await response.json();
-        
+
         if (data.success) {
             const select = document.getElementById('categoryId');
             if (select) {
                 select.innerHTML = '<option value="">Todas las categorías</option>';
-                
+
                 data.data.forEach(category => {
                     const option = document.createElement('option');
                     option.value = category.id;
@@ -209,12 +209,12 @@ async function loadSellers() {
     try {
         const response = await fetch('../api/users.php');
         const data = await response.json();
-        
+
         if (data.success) {
             const select = document.getElementById('sellerId');
             if (select) {
                 select.innerHTML = '<option value="">Todos los vendedores</option>';
-                
+
                 data.data.forEach(user => {
                     // Solo incluir usuarios con roles que pueden hacer ventas
                     if (['admin', 'vendedor', 'cajero'].includes(user.role)) {
@@ -249,7 +249,7 @@ function showReportError(message) {
     if (typeof showMessage === 'function') {
         showMessage(message, 'error');
     }
-    
+
     // También mostrar en el contenido del reporte
     document.getElementById('reportContent').innerHTML = `
         <div class="text-center py-12">
@@ -283,11 +283,11 @@ function formatDateForInput(date) {
 
 // Función para generar reportes rápidos
 function generateQuickReport(type) {
-    console.log('Generating quick report:', type);
-    
+
+
     const today = new Date();
     const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    
+
     switch (type) {
         case 'sales_today':
             // Configurar para ventas del día
@@ -296,7 +296,7 @@ function generateQuickReport(type) {
             document.getElementById('dateTo').value = formatDateForInput(today);
             currentReportType = 'sales';
             break;
-            
+
         case 'sales_month':
             // Configurar para ventas del mes
             document.getElementById('reportType').value = 'sales';
@@ -304,34 +304,34 @@ function generateQuickReport(type) {
             document.getElementById('dateTo').value = formatDateForInput(today);
             currentReportType = 'sales';
             break;
-            
+
         case 'low_stock':
             // Configurar para productos con stock bajo
             document.getElementById('reportType').value = 'inventory';
             currentReportType = 'inventory';
             break;
-            
+
         case 'expiring':
             // Configurar para productos próximos a caducar
             document.getElementById('reportType').value = 'inventory';
             currentReportType = 'inventory';
             break;
-            
+
         default:
             console.warn('Unknown quick report type:', type);
             return;
     }
-    
+
     // Actualizar la UI de filtros
     const filtersContainer = document.getElementById('reportFilters');
     if (filtersContainer) {
         filtersContainer.innerHTML = ReportsFilters.renderFilters(currentReportType);
     }
-    
+
     // Cargar datos necesarios y generar el reporte
     loadCategories();
     loadSellers();
-    
+
     // Agregar un pequeño delay para asegurar que los filtros se actualicen
     setTimeout(() => {
         generateReport();
@@ -348,8 +348,8 @@ function exportCurrentReport(format) {
         }
         return;
     }
-    
-    console.log(`Exportando reporte en formato ${format}...`);
+
+
     // TODO: Implementar exportación real
     if (typeof showMessage === 'function') {
         showMessage(`Funcionalidad de exportación ${format.toUpperCase()} lista para implementar`, 'info');
