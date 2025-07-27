@@ -101,6 +101,13 @@ class ModalComponent
                                                class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
                                                placeholder="0.00" required>
                                     </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-3">SKU *</label>
+                                        <input type="text" name="sku" 
+                                               class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
+                                               placeholder="Ingrese el SKU del producto" required>
+                                    </div>
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-3">Stock Inicial *</label>
                                         <input type="number" name="stock" min="0"
@@ -311,7 +318,8 @@ class ModalComponent
                     }
 
                     const filteredProducts = window.productsData.filter(product =>
-                        product.name.toLowerCase().includes(searchTerm)
+                        product.name.toLowerCase().includes(searchTerm) ||
+                        (product.sku && product.sku.toLowerCase().includes(searchTerm))
                     );
 
                     showProductDropdownForLine(filteredProducts, dropdown, lineId);
@@ -542,6 +550,12 @@ class ModalComponent
                                                placeholder="0.00" required>
                                     </div>
                                     <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-3">SKU *</label>
+                                        <input type="text" name="sku" value="${product.sku || ''}" 
+                                               class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
+                                               placeholder="Ingrese el SKU del producto" required>
+                                    </div>
+                                    <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-3">Stock *</label>
                                         <input type="number" name="stock" min="0" value="${product.stock}"
                                                class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
@@ -648,7 +662,8 @@ class ModalComponent
                     }
 
                     const filteredProducts = window.productsData.filter(product =>
-                        product.name.toLowerCase().includes(searchTerm)
+                        product.name.toLowerCase().includes(searchTerm) ||
+                        (product.sku && product.sku.toLowerCase().includes(searchTerm))
                     );
 
                     showProductDropdown(filteredProducts, dropdown, hiddenInput, searchInput);
@@ -808,7 +823,6 @@ class ModalComponent
                 }
             }
 
-            // Funciones para manejar formularios
             async function createUser(event) {
                 event.preventDefault();
 
@@ -842,6 +856,7 @@ class ModalComponent
                     name: formData.get('name').trim(),
                     price: parseFloat(formData.get('price')),
                     stock: parseInt(formData.get('stock')),
+                    sku: formData.get('sku') || null,
                     category_id: formData.get('category_id') || null,
                     expiry_date: formData.get('expiry_date') || null,
                     image: document.getElementById('imageBase64')?.value || null
@@ -1099,6 +1114,9 @@ class ModalComponent
                     name: formData.get('name').trim(),
                     price: parseFloat(formData.get('price')),
                     stock: parseInt(formData.get('stock')),
+                    sku: formData.get('sku') || null,
+
+
                     category_id: formData.get('category_id') || null,
                     expiration_date: formData.get('expiration_date') || null,
                     image: document.getElementById('editImageBase64')?.value || null,
