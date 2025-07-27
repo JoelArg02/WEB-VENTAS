@@ -14,7 +14,7 @@ SessionManager::requireLogin();
 $userData = SessionManager::getUserData();
 $userPermissions = PermissionManager::getRolePermissions($userData['role']);
 $visibleTabs = PermissionManager::getVisibleTabs($userData['role']);
-$title = 'Dashboard - Sistema de Ventas';
+$title = 'Sistema de Ventas';
 
 $dashboardComponent = new DashboardComponent($userData);
 $usersComponent = new UsersComponent($userData, $userPermissions);

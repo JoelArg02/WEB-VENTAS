@@ -19,7 +19,7 @@ services:
     container_name: web_server
     restart: always
     ports:
-      - "823:80"
+      - "80:80"
     volumes:
       - ./src:/var/www/html
     depends_on:
