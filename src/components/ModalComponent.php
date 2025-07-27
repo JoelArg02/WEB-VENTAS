@@ -108,13 +108,6 @@ class ModalComponent
                                                placeholder="0" required>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-semibold text-gray-700 mb-3">Lector</label>
-                                        <input type="text" name="sku"
-                                            class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
-                                            placeholder="Código de inventario (opcional)">
-                                    </div>
-
-                                    <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-3">Categoría *</label>
                                         <select name="category_id" 
                                                 class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" required>
@@ -318,8 +311,7 @@ class ModalComponent
                     }
 
                     const filteredProducts = window.productsData.filter(product =>
-                        product.name.toLowerCase().includes(searchTerm) ||
-                        (product.sku && product.sku.toLowerCase().includes(searchTerm))
+                        product.name.toLowerCase().includes(searchTerm)
                     );
 
                     showProductDropdownForLine(filteredProducts, dropdown, lineId);
@@ -548,12 +540,6 @@ class ModalComponent
                                         <input type="number" name="price" step="0.01" min="0" value="${product.price}"
                                                class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
                                                placeholder="0.00" required>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-semibold text-gray-700 mb-3">SKU</label>
-                                        <input type="text" name="sku" value="${product.sku || ''}"
-                                               class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
-                                               placeholder="Código de inventario (opcional)">
                                     </div>
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-3">Stock *</label>
@@ -855,7 +841,6 @@ class ModalComponent
                 const productData = {
                     name: formData.get('name').trim(),
                     price: parseFloat(formData.get('price')),
-                    sku: formData.get('sku') || null,
                     stock: parseInt(formData.get('stock')),
                     category_id: formData.get('category_id') || null,
                     expiry_date: formData.get('expiry_date') || null,
@@ -1075,20 +1060,32 @@ class ModalComponent
                 const data = Object.fromEntries(formData.entries());
 
                 try {
-                    const result = await apiRequest('api/categories.php', {
+                    const response = await fetch('api/categories.php', {
                         method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
                         body: JSON.stringify(data)
                     });
 
-                    if (result.success) {
+                    const raw = await response.text();
+                    console.log('RESPUESTA RAW:', raw); // Aquí verás el HTML o JSON exacto
+
+                    const json = JSON.parse(raw);
+
+                    if (json.success) {
                         showMessage('Categoría creada exitosamente', 'success');
                         closeModal();
                         if (typeof loadCategoriesData === 'function') loadCategoriesData();
+                    } else {
+                        showError(json.message);
                     }
                 } catch (error) {
+                    console.error('ERROR al parsear JSON:', error);
                     showError('Error al crear categoría');
                 }
             }
+
 
             // Función para actualizar producto
             async function updateProduct(event, id) {
@@ -1102,7 +1099,6 @@ class ModalComponent
                     name: formData.get('name').trim(),
                     price: parseFloat(formData.get('price')),
                     stock: parseInt(formData.get('stock')),
-                    sku: formData.get('sku') || null,
                     category_id: formData.get('category_id') || null,
                     expiration_date: formData.get('expiration_date') || null,
                     image: document.getElementById('editImageBase64')?.value || null,
