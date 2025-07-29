@@ -53,12 +53,13 @@ function handleReportGeneration($reportsManager) {
     }
     
     $type = $input['type'] ?? '';
-    $dateFrom = $input['dateFrom'] ?? null;
-    $dateTo = $input['dateTo'] ?? null;
-    $categoryId = $input['categoryId'] ?? null;
+    $dateFrom = $input['date_from'] ?? null;
+    $dateTo = $input['date_to'] ?? null;
+    $categoryId = $input['category_id'] ?? null;
     $sellerId = $input['seller_id'] ?? null;
-    $quickReport = $input['quickReport'] ?? null;
-    $stockStatus = $input['stockStatus'] ?? null;
+    $minStock = $input['min_stock'] ?? null;
+    $quickReport = $input['quick_report'] ?? null;
+    $stockStatus = $input['stock_status'] ?? null;
     $expiring = $input['expiring'] ?? false;
     
     $validTypes = ['sales', 'products', 'inventory', 'categories'];
@@ -72,7 +73,7 @@ function handleReportGeneration($reportsManager) {
         if ($quickReport) {
             $data = generateQuickReportData($reportsManager, $quickReport, $dateFrom, $dateTo, $stockStatus, $expiring);
         } else {
-            $data = generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId);
+            $data = generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId, $sellerId, $minStock);
         }
         echo json_encode(['success' => true, 'data' => $data]);
     } catch (Exception $e) {
@@ -82,27 +83,39 @@ function handleReportGeneration($reportsManager) {
     }
 }
 
-function generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId) {
+function generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId, $sellerId = null, $minStock = null) {
     switch ($type) {
         case 'sales':
-            global $sellerId;
-            return generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId);
+            return generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId, $categoryId, $minStock);
+            
         case 'products':
-            return generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId);
+            return generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId, $minStock);
+            
         case 'inventory':
-            return generateInventoryReport($reportsManager, $categoryId);
+            return generateInventoryReport($reportsManager, $categoryId, $minStock);
+            
         case 'categories':
             return generateCategoriesReport($reportsManager, $dateFrom, $dateTo);
+            
         default:
             throw new Exception('Tipo de reporte no soportado');
     }
 }
 
-function generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId = null) {
+function generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId = null, $categoryId = null, $minStock = null) {
     // Obtener resumen de ventas
     $summary = $reportsManager->getBusinessSummary($dateFrom, $dateTo, $sellerId);
     // Obtener ventas detalladas
-    $details = $reportsManager->getDetailedSales($dateFrom, $dateTo, $sellerId);
+    $details = $reportsManager->getDetailedSales($dateFrom, $dateTo, $sellerId, $categoryId);
+    
+    // Filtrar por stock mínimo si se especifica
+    if ($minStock !== null && $minStock > 0) {
+        $details = array_filter($details, function($sale) use ($minStock) {
+            return isset($sale['stock']) && $sale['stock'] >= $minStock;
+        });
+        $details = array_values($details);
+    }
+    
     return [
         'summary' => $summary,
         'details' => $details,
@@ -111,17 +124,26 @@ function generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId = nu
             'from' => $dateFrom,
             'to' => $dateTo
         ],
-        'seller_id' => $sellerId
+        'seller_id' => $sellerId,
+        'category_id' => $categoryId,
+        'min_stock' => $minStock
     ];
 }
 
-function generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId) {
+function generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId, $minStock = null) {
     $bestSelling = $reportsManager->getBestSellingProducts($dateFrom, $dateTo, 50);
     
     if ($categoryId) {
         $bestSelling = array_filter($bestSelling, function($product) use ($categoryId) {
             return (isset($product['category_id']) && $product['category_id'] == $categoryId) ||
                    (isset($product['category_name']) && !empty($product['category_name']));
+        });
+        $bestSelling = array_values($bestSelling);
+    }
+    
+    if ($minStock !== null && $minStock > 0) {
+        $bestSelling = array_filter($bestSelling, function($product) use ($minStock) {
+            return isset($product['stock']) && $product['stock'] >= $minStock;
         });
         $bestSelling = array_values($bestSelling);
     }
@@ -142,17 +164,25 @@ function generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId
             'from' => $dateFrom,
             'to' => $dateTo
         ],
-        'category_id' => $categoryId
+        'category_id' => $categoryId,
+        'min_stock' => $minStock
     ];
 }
 
-function generateInventoryReport($reportsManager, $categoryId) {
+function generateInventoryReport($reportsManager, $categoryId, $minStock = null) {
     $inventory = $reportsManager->getInventoryReport();
     
     if ($categoryId) {
         $inventory = array_filter($inventory, function($product) use ($categoryId) {
             return (isset($product['category_id']) && $product['category_id'] == $categoryId) ||
                    (isset($product['category_name']) && !empty($product['category_name']));
+        });
+        $inventory = array_values($inventory);
+    }
+    
+    if ($minStock !== null && $minStock > 0) {
+        $inventory = array_filter($inventory, function($product) use ($minStock) {
+            return isset($product['stock']) && $product['stock'] >= $minStock;
         });
         $inventory = array_values($inventory);
     }
@@ -173,7 +203,8 @@ function generateInventoryReport($reportsManager, $categoryId) {
         ],
         'inventory' => $inventory,
         'type' => 'inventory',
-        'category_id' => $categoryId
+        'category_id' => $categoryId,
+        'min_stock' => $minStock
     ];
 }
 

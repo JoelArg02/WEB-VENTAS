@@ -826,78 +826,279 @@ function generateCategoriesPDF(doc, data, startY) {
 }
 
 function generateSalesExcel(workbook, data) {
-    // Hoja de resumen
-    const summaryData = [
-        ['Métrica', 'Valor'],
-        ['Total de Ventas', data.summary?.total_sales || 0],
-        ['Ingresos Totales', data.summary?.total_revenue || 0],
-        ['Venta Promedio', data.summary?.avg_sale_amount || 0],
-        ['Productos Vendidos', data.summary?.total_items_sold || 0]
+    // Crear hoja principal con formato mejorado
+    const worksheet = XLSX.utils.aoa_to_sheet([]);
+    
+    // Información de la empresa (header)
+    const companyInfo = [
+        ['SISTEMA DE VENTAS - REPORTE DE VENTAS'],
+        [''],
+        ['Fecha de Generación:', new Date().toLocaleDateString('es-ES')],
+        ['Tipo de Reporte:', 'Resumen de Ventas'],
+        ['Período:', data.period ? `${formatDate(data.period.from)} - ${formatDate(data.period.to)}` : 'Todos los registros'],
+        ['Vendedor:', data.seller_id ? 'Filtrado por vendedor' : 'Todos los vendedores'],
+        [''],
+        ['RESUMEN EJECUTIVO'],
+        ['Total de Ventas:', data.summary?.total_sales || 0],
+        ['Ingresos Totales:', formatCurrency(data.summary?.total_revenue || 0)],
+        ['Venta Promedio:', formatCurrency(data.summary?.avg_sale_amount || 0)],
+        ['Productos Vendidos:', data.summary?.total_items_sold || 0],
+        [''],
+        ['DETALLE DE VENTAS']
     ];
-
-    const summaryWorksheet = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Resumen');
-
-    // Hoja de ventas detalladas
+    
+    // Agregar información de la empresa
+    companyInfo.forEach((row, index) => {
+        XLSX.utils.sheet_add_aoa(worksheet, [row], {origin: `A${index + 1}`});
+    });
+    
+    // Headers de la tabla de ventas (fila 15)
+    const headers = [
+        'ID Venta', 'Vendedor', 'Subtotal', 'IVA', 'Total', 
+        'Dinero Recibido', 'Cambio', 'Fecha', 'Items', 'Productos'
+    ];
+    XLSX.utils.sheet_add_aoa(worksheet, [headers], {origin: 'A15'});
+    
+    // Datos de ventas
     if (data.details && data.details.length > 0) {
-        const detailsData = [
-            ['ID', 'Cliente', 'Vendedor', 'Subtotal', 'IVA', 'Total', 'Recibido', 'Cambio', 'Fecha', 'Productos']
-        ];
-
-        data.details.forEach(sale => {
-            detailsData.push([
-                sale.id,
-                sale.client || 'N/A',
-                sale.seller_name || 'N/A',
-                sale.subtotal || 0,
-                sale.iva_amount || 0,
-                sale.total_amount || 0,
-                sale.money_received || 0,
-                sale.change_amount || 0,
-                formatDate(sale.sale_date),
-                sale.products_detail || 'N/A'
-            ]);
-        });
-
-        const detailsWorksheet = XLSX.utils.aoa_to_sheet(detailsData);
-        XLSX.utils.book_append_sheet(workbook, detailsWorksheet, 'Ventas Detalladas');
+        const salesData = data.details.map(sale => [
+            sale.id,
+            sale.seller_name || 'N/A',
+            parseFloat(sale.subtotal || 0),
+            parseFloat(sale.iva_amount || 0),
+            parseFloat(sale.total_amount || 0),
+            parseFloat(sale.money_received || 0),
+            parseFloat(sale.change_amount || 0),
+            formatDate(sale.sale_date),
+            parseInt(sale.total_items || 0),
+            sale.products_detail || 'N/A'
+        ]);
+        
+        XLSX.utils.sheet_add_aoa(worksheet, salesData, {origin: 'A16'});
     }
+    
+    // Aplicar estilos y formato
+    const range = XLSX.utils.decode_range(worksheet['!ref']);
+    
+    // Establecer anchos de columna
+    worksheet['!cols'] = [
+        {wch: 8},   // ID
+        {wch: 15},  // Vendedor
+        {wch: 12},  // Subtotal
+        {wch: 10},  // IVA
+        {wch: 12},  // Total
+        {wch: 12},  // Recibido
+        {wch: 10},  // Cambio
+        {wch: 12},  // Fecha
+        {wch: 8},   // Items
+        {wch: 40}   // Productos
+    ];
+    
+    // Formato para título principal
+    if (worksheet['A1']) {
+        worksheet['A1'].s = {
+            font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "059669" } },
+            alignment: { horizontal: "center" }
+        };
+    }
+    
+    // Formato para headers de tabla
+    for (let col = 0; col < headers.length; col++) {
+        const cellAddress = XLSX.utils.encode_cell({r: 14, c: col});
+        if (worksheet[cellAddress]) {
+            worksheet[cellAddress].s = {
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "047857" } },
+                alignment: { horizontal: "center" },
+                border: {
+                    top: { style: "thin", color: { rgb: "000000" } },
+                    bottom: { style: "thin", color: { rgb: "000000" } },
+                    left: { style: "thin", color: { rgb: "000000" } },
+                    right: { style: "thin", color: { rgb: "000000" } }
+                }
+            };
+        }
+    }
+    
+    // Formato para datos de ventas
+    if (data.details && data.details.length > 0) {
+        for (let row = 15; row < 15 + data.details.length; row++) {
+            for (let col = 0; col < headers.length; col++) {
+                const cellAddress = XLSX.utils.encode_cell({r: row, c: col});
+                if (worksheet[cellAddress]) {
+                    const isEvenRow = (row - 15) % 2 === 0;
+                    worksheet[cellAddress].s = {
+                        fill: { fgColor: { rgb: isEvenRow ? "F0FDF4" : "FFFFFF" } },
+                        border: {
+                            top: { style: "thin", color: { rgb: "E2E8F0" } },
+                            bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+                            left: { style: "thin", color: { rgb: "E2E8F0" } },
+                            right: { style: "thin", color: { rgb: "E2E8F0" } }
+                        },
+                        alignment: { horizontal: col === 1 || col === 9 ? "left" : "center" }
+                    };
+                    
+                    // Formato especial para montos
+                    if (col >= 2 && col <= 6) { // Subtotal, IVA, Total, Recibido, Cambio
+                        worksheet[cellAddress].z = '"$"#,##0.00';
+                    }
+                    if (col === 8) { // Items
+                        worksheet[cellAddress].z = '#,##0';
+                    }
+                }
+            }
+        }
+    }
+    
+    // Agregar la hoja al workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte de Ventas');
 }
 
 function generateProductsExcel(workbook, data) {
-    // Hoja de resumen
-    const summaryData = [
-        ['Métrica', 'Valor'],
-        ['Total de Productos', data.summary?.total_products || 0],
-        ['Unidades Vendidas', data.summary?.total_sold || 0],
-        ['Ingresos por Productos', data.summary?.total_revenue || 0]
+    // Crear hoja principal con logo y formato mejorado
+    const worksheet = XLSX.utils.aoa_to_sheet([]);
+    
+    // Información de la empresa (header)
+    const companyInfo = [
+        ['SISTEMA DE VENTAS - REPORTE DE PRODUCTOS'],
+        [''],
+        ['Fecha de Generación:', new Date().toLocaleDateString('es-ES')],
+        ['Tipo de Reporte:', 'Productos Más Vendidos'],
+        ['Período:', data.period ? `${formatDate(data.period.from)} - ${formatDate(data.period.to)}` : 'Todos los registros'],
+        [''],
+        ['RESUMEN EJECUTIVO'],
+        ['Total de Productos:', data.summary?.total_products || 0],
+        ['Unidades Vendidas:', data.summary?.total_sold || 0],
+        ['Ingresos por Productos:', formatCurrency(data.summary?.total_revenue || 0)],
+        [''],
+        ['DETALLE DE PRODUCTOS']
     ];
-
-    const summaryWorksheet = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Resumen');
-
-    // Hoja de productos
+    
+    // Agregar información de la empresa
+    companyInfo.forEach((row, index) => {
+        XLSX.utils.sheet_add_aoa(worksheet, [row], {origin: `A${index + 1}`});
+    });
+    
+    // Headers de la tabla de productos (fila 13)
+    const headers = [
+        'ID', 'Nombre del Producto', 'Categoría', 'Precio Unitario', 
+        'Stock Actual', 'Unidades Vendidas', 'Ingresos Generados', 'Total de Ventas'
+    ];
+    XLSX.utils.sheet_add_aoa(worksheet, [headers], {origin: 'A13'});
+    
+    // Datos de productos
     if (data.products && data.products.length > 0) {
-        const productsData = [
-            ['ID', 'Producto', 'Categoría', 'Precio', 'Stock', 'Vendidos', 'Ingresos', 'Ventas']
-        ];
-
-        data.products.forEach(product => {
-            productsData.push([
-                product.id,
-                product.name,
-                product.category_name || 'Sin categoría',
-                product.price || 0,
-                product.stock || 0,
-                product.total_sold || 0,
-                product.total_revenue || 0,
-                product.sales_count || 0
-            ]);
-        });
-
-        const productsWorksheet = XLSX.utils.aoa_to_sheet(productsData);
-        XLSX.utils.book_append_sheet(workbook, productsWorksheet, 'Productos');
+        const productsData = data.products.map(product => [
+            product.id,
+            product.name,
+            product.category_name || 'Sin categoría',
+            parseFloat(product.price || 0),
+            parseInt(product.stock || 0),
+            parseInt(product.total_sold || 0),
+            parseFloat(product.total_revenue || 0),
+            parseInt(product.sales_count || 0)
+        ]);
+        
+        XLSX.utils.sheet_add_aoa(worksheet, productsData, {origin: 'A14'});
     }
+    
+    // Aplicar estilos y formato
+    const range = XLSX.utils.decode_range(worksheet['!ref']);
+    
+    // Establecer anchos de columna
+    worksheet['!cols'] = [
+        {wch: 8},   // ID
+        {wch: 25},  // Nombre
+        {wch: 15},  // Categoría
+        {wch: 12},  // Precio
+        {wch: 10},  // Stock
+        {wch: 12},  // Vendidos
+        {wch: 15},  // Ingresos
+        {wch: 12}   // Ventas
+    ];
+    
+    // Formato para títulos principales
+    if (worksheet['A1']) {
+        worksheet['A1'].s = {
+            font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "2563EB" } },
+            alignment: { horizontal: "center" }
+        };
+    }
+    
+    // Formato para headers de tabla
+    for (let col = 0; col < headers.length; col++) {
+        const cellAddress = XLSX.utils.encode_cell({r: 12, c: col});
+        if (worksheet[cellAddress]) {
+            worksheet[cellAddress].s = {
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "4F46E5" } },
+                alignment: { horizontal: "center" },
+                border: {
+                    top: { style: "thin", color: { rgb: "000000" } },
+                    bottom: { style: "thin", color: { rgb: "000000" } },
+                    left: { style: "thin", color: { rgb: "000000" } },
+                    right: { style: "thin", color: { rgb: "000000" } }
+                }
+            };
+        }
+    }
+    
+    // Formato para datos de productos (alternar colores)
+    if (data.products && data.products.length > 0) {
+        for (let row = 13; row < 13 + data.products.length; row++) {
+            for (let col = 0; col < headers.length; col++) {
+                const cellAddress = XLSX.utils.encode_cell({r: row, c: col});
+                if (worksheet[cellAddress]) {
+                    const isEvenRow = (row - 13) % 2 === 0;
+                    worksheet[cellAddress].s = {
+                        fill: { fgColor: { rgb: isEvenRow ? "F8FAFC" : "FFFFFF" } },
+                        border: {
+                            top: { style: "thin", color: { rgb: "E2E8F0" } },
+                            bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+                            left: { style: "thin", color: { rgb: "E2E8F0" } },
+                            right: { style: "thin", color: { rgb: "E2E8F0" } }
+                        },
+                        alignment: { horizontal: col === 1 ? "left" : "center" } // Nombre a la izquierda, resto centrado
+                    };
+                    
+                    // Formato especial para montos
+                    if (col === 3 || col === 6) { // Precio e Ingresos
+                        worksheet[cellAddress].z = '"$"#,##0.00';
+                    }
+                    if (col === 4 || col === 5 || col === 7) { // Stock, Vendidos, Ventas
+                        worksheet[cellAddress].z = '#,##0';
+                    }
+                }
+            }
+        }
+    }
+    
+    // Agregar la hoja al workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte de Productos');
+    
+    // Hoja adicional con solo datos para análisis
+    const dataOnlyWorksheet = XLSX.utils.aoa_to_sheet([
+        ['ID', 'Producto', 'Categoría', 'Precio', 'Stock', 'Vendidos', 'Ingresos', 'Ventas']
+    ]);
+    
+    if (data.products && data.products.length > 0) {
+        const simpleData = data.products.map(product => [
+            product.id,
+            product.name,
+            product.category_name || 'Sin categoría',
+            product.price || 0,
+            product.stock || 0,
+            product.total_sold || 0,
+            product.total_revenue || 0,
+            product.sales_count || 0
+        ]);
+        
+        XLSX.utils.sheet_add_aoa(dataOnlyWorksheet, simpleData, {origin: 'A2'});
+    }
+    
+    XLSX.utils.book_append_sheet(workbook, dataOnlyWorksheet, 'Datos Productos');
 }
 
 function generateInventoryExcel(workbook, data) {
