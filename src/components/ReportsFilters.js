@@ -74,14 +74,35 @@ class ReportsFilters {
                         </select>
                     </div>
                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Stock Mínimo</label>
+                        <input type="number" id="minStock" onchange="applyFilters()" placeholder="0" 
+                               class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Estado Stock</label>
                         <select id="stockStatus" onchange="applyFilters()" 
                                 class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
                             <option value="">Todos</option>
-                            <option value="critical">Crítico (≤5)</option>
-                            <option value="low">Bajo (≤10)</option>
-                            <option value="medium">Medio (≤20)</option>
-                            <option value="good">Bueno (>20)</option>
+                            <option value="critical_stock">Crítico (≤5)</option>
+                            <option value="low_stock">Bajo (≤10)</option>
+                            <option value="good_stock">Bueno (>20)</option>
+                            <option value="out_of_stock">Sin Stock (0)</option>
+                        </select>
+                    </div>
+                `;
+            case 'categories':
+                return `
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Categoría Específica</label>
+                        <select id="categoryId" onchange="applyFilters()" 
+                                class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Todas las categorías</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Filtro</label>
+                        <select disabled class="w-full border-gray-300 rounded-lg bg-gray-100">
+                            <option>Ordenar por ingresos</option>
                         </select>
                     </div>
                 `;

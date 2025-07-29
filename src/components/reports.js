@@ -106,6 +106,9 @@ function clearFilters() {
     const stockStatusSelect = document.getElementById('stockStatus');
     if (stockStatusSelect) stockStatusSelect.value = '';
 
+    const minAmountInput = document.getElementById('minAmount');
+    if (minAmountInput) minAmountInput.value = '';
+
     // Limpiar contenido del reporte
     document.getElementById('reportContent').innerHTML = getEmptyReportMessage();
     currentReportData = null;
@@ -120,8 +123,10 @@ async function generateReport() {
     const sellerId = document.getElementById('sellerId')?.value || '';
     const minStock = document.getElementById('minStock')?.value || '';
     const stockStatus = document.getElementById('stockStatus')?.value || '';
+    const minAmount = document.getElementById('minAmount')?.value || '';
 
-    if (!dateFrom || !dateTo) {
+    // Validar fechas solo para reportes que las requieran
+    if ((reportType === 'sales' || reportType === 'products' || reportType === 'categories') && (!dateFrom || !dateTo)) {
         if (typeof showMessage === 'function') {
             showMessage('Por favor selecciona las fechas', 'warning');
         }
@@ -136,19 +141,22 @@ async function generateReport() {
             date_from: dateFrom,
             date_to: dateTo,
             category_id: categoryId,
-            seller_id: sellerId
+            seller_id: sellerId,
+            stock_status: stockStatus
         };
 
         // Agregar parámetros específicos según el tipo de reporte
         if (reportType === 'products' || reportType === 'inventory') {
-            if (minStock) {
+            if (minStock && minStock > 0) {
                 requestBody.min_stock = parseInt(minStock);
             }
         }
         
-        if (reportType === 'inventory' && stockStatus) {
-            requestBody.stock_status = stockStatus;
+        if (reportType === 'sales' && minAmount && minAmount > 0) {
+            requestBody.min_amount = parseFloat(minAmount);
         }
+
+        console.log('Enviando datos del reporte:', requestBody);
 
         const response = await fetch('../api/reports.php', {
             method: 'POST',
@@ -159,10 +167,16 @@ async function generateReport() {
         });
 
         const data = await response.json();
+        console.log('Respuesta del servidor:', data);
 
         if (data.success) {
             currentReportData = data.data;
-            renderReport(reportType, data.data, { dateFrom, dateTo, categoryId, sellerId, minStock, stockStatus });
+            renderReport(reportType, data.data, { dateFrom, dateTo, categoryId, sellerId, minStock, stockStatus, minAmount });
+            
+            // Mensaje de éxito
+            if (typeof showMessage === 'function') {
+                showMessage('Reporte generado exitosamente', 'success');
+            }
         } else {
             showReportError(data.message || 'Error al generar el reporte');
         }
@@ -419,6 +433,17 @@ async function generateQuickReportDirectly(quickType, reportType, dateFrom, date
         if (data.success) {
             currentReportData = data.data;
             renderReport(reportType, data.data, { dateFrom, dateTo, categoryId });
+            
+            // Mensaje de éxito
+            if (typeof showMessage === 'function') {
+                const reportNames = {
+                    'sales_today': 'Ventas de Hoy',
+                    'sales_month': 'Ventas del Mes',
+                    'low_stock': 'Productos con Stock Bajo',
+                    'expiring': 'Productos por Caducar'
+                };
+                showMessage(`Reporte de ${reportNames[quickType] || 'reporte rápido'} generado exitosamente`, 'success');
+            }
         } else {
             showReportError(data.message || 'Error al generar el reporte rápido');
         }
@@ -487,43 +512,96 @@ function generatePDF(reportType, data) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    // Configuración inicial
-    doc.setFontSize(20);
-    doc.text('Reporte de ' + getReportTitle(reportType), 20, 20);
+    // Intentar cargar y agregar logo
+    loadImageForPDF('/assets/logo.png').then(logoData => {
+        try {
+            // Agregar logo en la esquina superior izquierda
+            doc.addImage(logoData, 'PNG', 10, 10, 30, 30);
+        } catch (e) {
+            console.log('No se pudo agregar el logo al PDF:', e);
+        }
+        
+        // Configuración inicial con logo
+        doc.setFontSize(20);
+        doc.text('Reporte de ' + getReportTitle(reportType), 50, 25);
 
-    // Información del reporte
-    doc.setFontSize(12);
-    doc.text('Generado el: ' + new Date().toLocaleDateString('es-ES'), 20, 30);
+        // Información del reporte
+        doc.setFontSize(12);
+        doc.text('Generado el: ' + new Date().toLocaleDateString('es-ES'), 50, 35);
 
-    let yPosition = 50;
-    let generatePromise;
+        let yPosition = 50;
+        let generatePromise;
 
-    switch (reportType) {
-        case 'sales':
-            generateSalesPDF(doc, data, yPosition);
-            generatePromise = Promise.resolve(doc);
-            break;
-        case 'products':
-            generatePromise = generateProductsPDF(doc, data, yPosition);
-            break;
-        case 'inventory':
-            generatePromise = generateInventoryPDF(doc, data, yPosition);
-            break;
-        case 'categories':
-            generateCategoriesPDF(doc, data, yPosition);
-            generatePromise = Promise.resolve(doc);
-            break;
-        default:
-            generatePromise = Promise.resolve(doc);
-    }
+        switch (reportType) {
+            case 'sales':
+                generateSalesPDF(doc, data, yPosition);
+                generatePromise = Promise.resolve(doc);
+                break;
+            case 'products':
+                generatePromise = generateProductsPDF(doc, data, yPosition);
+                break;
+            case 'inventory':
+                generatePromise = generateInventoryPDF(doc, data, yPosition);
+                break;
+            case 'categories':
+                generateCategoriesPDF(doc, data, yPosition);
+                generatePromise = Promise.resolve(doc);
+                break;
+            default:
+                generatePromise = Promise.resolve(doc);
+        }
 
-    // Guardar el PDF cuando esté listo
-    generatePromise.then(finalDoc => {
-        finalDoc.save(`reporte_${reportType}_${new Date().toISOString().split('T')[0]}.pdf`);
-        showMessage('PDF generado exitosamente', 'success');
-    }).catch(error => {
-        console.error('Error generating PDF:', error);
-        showMessage('Error al generar el PDF', 'error');
+        // Guardar el PDF cuando esté listo
+        generatePromise.then(finalDoc => {
+            finalDoc.save(`reporte_${reportType}_${new Date().toISOString().split('T')[0]}.pdf`);
+            showMessage('PDF generado exitosamente', 'success');
+        }).catch(error => {
+            console.error('Error generating PDF:', error);
+            showMessage('Error al generar el PDF', 'error');
+        });
+        
+    }).catch(() => {
+        // Si no se puede cargar el logo, generar PDF sin logo
+        console.log('Generando PDF sin logo');
+        
+        // Configuración inicial sin logo
+        doc.setFontSize(20);
+        doc.text('Reporte de ' + getReportTitle(reportType), 20, 20);
+
+        // Información del reporte
+        doc.setFontSize(12);
+        doc.text('Generado el: ' + new Date().toLocaleDateString('es-ES'), 20, 30);
+
+        let yPosition = 50;
+        let generatePromise;
+
+        switch (reportType) {
+            case 'sales':
+                generateSalesPDF(doc, data, yPosition);
+                generatePromise = Promise.resolve(doc);
+                break;
+            case 'products':
+                generatePromise = generateProductsPDF(doc, data, yPosition);
+                break;
+            case 'inventory':
+                generatePromise = generateInventoryPDF(doc, data, yPosition);
+                break;
+            case 'categories':
+                generateCategoriesPDF(doc, data, yPosition);
+                generatePromise = Promise.resolve(doc);
+                break;
+            default:
+                generatePromise = Promise.resolve(doc);
+        }
+
+        // Guardar el PDF cuando esté listo
+        generatePromise.then(finalDoc => {
+            finalDoc.save(`reporte_${reportType}_${new Date().toISOString().split('T')[0]}.pdf`);
+            showMessage('PDF generado exitosamente', 'success');
+        }).catch(error => {
+            console.error('Error generating PDF:', error);
+            showMessage('Error al generar el PDF', 'error');
+        });
     });
 }
 
@@ -585,14 +663,14 @@ function generateSalesPDF(doc, data, startY) {
         // Dibujar rectángulo para headers
         doc.setFillColor(34, 197, 94); // Color verde
         doc.setTextColor(255, 255, 255); // Texto blanco
-        doc.rect(15, y - 5, 185, 12, 'F');
-        doc.rect(15, y - 5, 185, 12, 'S');
+        doc.rect(15, y - 5, 175, 12, 'F');
+        doc.rect(15, y - 5, 175, 12, 'S');
         
         doc.text('ID', 20, y);
-        doc.text('Vendedor', 50, y);
-        doc.text('Total', 100, y);
-        doc.text('Productos', 130, y);
-        doc.text('Fecha', 170, y);
+        doc.text('Vendedor', 40, y);
+        doc.text('Total', 80, y);
+        doc.text('Items', 110, y);
+        doc.text('Fecha', 140, y);
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0, 0, 0); // Volver a texto negro
         y += 8;
@@ -602,18 +680,26 @@ function generateSalesPDF(doc, data, startY) {
             // Dibujar fila con borde alternado
             if (index % 2 === 0) {
                 doc.setFillColor(240, 253, 244); // Color verde claro para filas pares
-                doc.rect(15, y - 3, 185, 8, 'F');
+                doc.rect(15, y - 3, 175, 8, 'F');
             }
             
             // Borde de la fila
             doc.setDrawColor(200, 200, 200);
-            doc.rect(15, y - 3, 185, 8, 'S');
+            doc.rect(15, y - 3, 175, 8, 'S');
             
             doc.text(String(sale.id), 20, y);
-            doc.text(sale.seller_name || 'N/A', 50, y);
-            doc.text(formatCurrency(sale.total_amount), 100, y);
-            doc.text(String(sale.total_items || 0), 130, y);
-            doc.text(formatDate(sale.sale_date), 170, y);
+            doc.text((sale.seller_name || 'N/A').substring(0, 15), 40, y);
+            doc.text(formatCurrency(sale.total_amount), 80, y);
+            doc.text(String(sale.total_items || 0), 110, y);
+            
+            // Formatear fecha más corta
+            const saleDate = new Date(sale.sale_date);
+            const shortDate = saleDate.toLocaleDateString('es-ES', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                year: '2-digit' 
+            });
+            doc.text(shortDate, 140, y);
             y += 6;
 
             if (y > 250) {
@@ -1027,6 +1113,8 @@ function generateProductsExcel(workbook, data) {
     const companyInfo = [
         ['', '', '', 'SISTEMA DE VENTAS - REPORTE DE PRODUCTOS'],
         [''],
+        [''],
+        [''],
         ['', '', '', 'Fecha de Generación:', new Date().toLocaleDateString('es-ES')],
         ['', '', '', 'Tipo de Reporte:', 'Productos Más Vendidos'],
         ['', '', '', 'Período:', data.period ? `${formatDate(data.period.from)} - ${formatDate(data.period.to)}` : 'Todos los registros'],
@@ -1046,8 +1134,7 @@ function generateProductsExcel(workbook, data) {
     
     // Intentar agregar logo de la empresa
     try {
-        const logoPath = '../assets/logo.png';
-        addLogoToExcelSheet(worksheet, logoPath);
+        addLogoToExcelSheet(worksheet, '/assets/logo.png');
     } catch (error) {
         console.log('No se pudo cargar el logo para Excel:', error);
     }
@@ -1057,12 +1144,12 @@ function generateProductsExcel(workbook, data) {
     worksheet['!merges'] = worksheet['!merges'] || [];
     worksheet['!merges'].push(XLSX.utils.decode_range(titleRange));
     
-    // Headers de la tabla de productos (fila 13)
+    // Headers de la tabla de productos (fila 15 - ajustado por el logo)
     const headers = [
         'ID', 'Nombre del Producto', 'Categoría', 'Precio Unitario', 
         'Stock Actual', 'Unidades Vendidas', 'Ingresos Generados', 'Total de Ventas'
     ];
-    XLSX.utils.sheet_add_aoa(worksheet, [headers], {origin: 'A13'});
+    XLSX.utils.sheet_add_aoa(worksheet, [headers], {origin: 'A15'});
     
     // Datos de productos
     if (data.products && data.products.length > 0) {
@@ -1077,7 +1164,7 @@ function generateProductsExcel(workbook, data) {
             parseInt(product.sales_count || 0)
         ]);
         
-        XLSX.utils.sheet_add_aoa(worksheet, productsData, {origin: 'A14'});
+        XLSX.utils.sheet_add_aoa(worksheet, productsData, {origin: 'A16'});
     }
     
     // Aplicar estilos y formato
@@ -1106,7 +1193,7 @@ function generateProductsExcel(workbook, data) {
     
     // Formato para headers de tabla
     for (let col = 0; col < headers.length; col++) {
-        const cellAddress = XLSX.utils.encode_cell({r: 12, c: col});
+        const cellAddress = XLSX.utils.encode_cell({r: 14, c: col});
         if (worksheet[cellAddress]) {
             worksheet[cellAddress].s = {
                 font: { bold: true, color: { rgb: "FFFFFF" } },
@@ -1124,11 +1211,11 @@ function generateProductsExcel(workbook, data) {
     
     // Formato para datos de productos (alternar colores)
     if (data.products && data.products.length > 0) {
-        for (let row = 13; row < 13 + data.products.length; row++) {
+        for (let row = 15; row < 15 + data.products.length; row++) {
             for (let col = 0; col < headers.length; col++) {
                 const cellAddress = XLSX.utils.encode_cell({r: row, c: col});
                 if (worksheet[cellAddress]) {
-                    const isEvenRow = (row - 13) % 2 === 0;
+                    const isEvenRow = (row - 15) % 2 === 0;
                     worksheet[cellAddress].s = {
                         fill: { fgColor: { rgb: isEvenRow ? "F8FAFC" : "FFFFFF" } },
                         border: {
@@ -1347,21 +1434,31 @@ function loadImageForPDF(imageSrc) {
 
 // Función auxiliar para agregar logo al Excel
 function addLogoToExcelSheet(worksheet, logoPath) {
-    // Por ahora solo agregamos un placeholder para el logo
-    // En una implementación completa, se podría usar una librería que soporte imágenes en Excel
+    // Agregar placeholder para el logo con mejor formato
     const logoCell = 'A1';
-    if (worksheet[logoCell]) {
-        worksheet[logoCell].v = 'LOGO';
-        worksheet[logoCell].s = {
-            font: { bold: true, sz: 14, color: { rgb: "2563EB" } },
+    worksheet[logoCell] = {
+        v: '🏢 LOGO EMPRESA',
+        s: {
+            font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
             alignment: { horizontal: "center", vertical: "center" },
-            fill: { fgColor: { rgb: "E3F2FD" } },
+            fill: { fgColor: { rgb: "2563EB" } },
             border: {
-                top: { style: "thin", color: { rgb: "2563EB" } },
-                bottom: { style: "thin", color: { rgb: "2563EB" } },
-                left: { style: "thin", color: { rgb: "2563EB" } },
-                right: { style: "thin", color: { rgb: "2563EB" } }
+                top: { style: "thick", color: { rgb: "2563EB" } },
+                bottom: { style: "thick", color: { rgb: "2563EB" } },
+                left: { style: "thick", color: { rgb: "2563EB" } },
+                right: { style: "thick", color: { rgb: "2563EB" } }
             }
-        };
-    }
+        }
+    };
+    
+    // Hacer merge de celdas para el logo
+    const logoRange = XLSX.utils.decode_range('A1:C3');
+    if (!worksheet['!merges']) worksheet['!merges'] = [];
+    worksheet['!merges'].push(logoRange);
+    
+    // Ajustar altura de fila para el logo
+    if (!worksheet['!rows']) worksheet['!rows'] = [];
+    worksheet['!rows'][0] = { hpt: 30 };
+    worksheet['!rows'][1] = { hpt: 30 };
+    worksheet['!rows'][2] = { hpt: 30 };
 }

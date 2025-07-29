@@ -61,6 +61,7 @@ function handleReportGeneration($reportsManager) {
     $quickReport = $input['quick_report'] ?? null;
     $stockStatus = $input['stock_status'] ?? null;
     $expiring = $input['expiring'] ?? false;
+    $minAmount = $input['min_amount'] ?? null;
     
     $validTypes = ['sales', 'products', 'inventory', 'categories'];
     if (!in_array($type, $validTypes)) {
@@ -73,7 +74,7 @@ function handleReportGeneration($reportsManager) {
         if ($quickReport) {
             $data = generateQuickReportData($reportsManager, $quickReport, $dateFrom, $dateTo, $stockStatus, $expiring);
         } else {
-            $data = generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId, $sellerId, $minStock);
+            $data = generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId, $sellerId, $minStock, $stockStatus, $minAmount);
         }
         echo json_encode(['success' => true, 'data' => $data]);
     } catch (Exception $e) {
@@ -83,30 +84,38 @@ function handleReportGeneration($reportsManager) {
     }
 }
 
-function generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId, $sellerId = null, $minStock = null) {
+function generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId, $sellerId = null, $minStock = null, $stockStatus = null, $minAmount = null) {
     switch ($type) {
         case 'sales':
-            return generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId, $categoryId, $minStock);
+            return generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId, $categoryId, $minStock, $minAmount);
             
         case 'products':
             return generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId, $minStock);
             
         case 'inventory':
-            return generateInventoryReport($reportsManager, $categoryId, $minStock);
+            return generateInventoryReport($reportsManager, $categoryId, $minStock, $stockStatus);
             
         case 'categories':
-            return generateCategoriesReport($reportsManager, $dateFrom, $dateTo);
+            return generateCategoriesReport($reportsManager, $dateFrom, $dateTo, $categoryId);
             
         default:
             throw new Exception('Tipo de reporte no soportado');
     }
 }
 
-function generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId = null, $categoryId = null, $minStock = null) {
+function generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId = null, $categoryId = null, $minStock = null, $minAmount = null) {
     // Obtener resumen de ventas
     $summary = $reportsManager->getBusinessSummary($dateFrom, $dateTo, $sellerId);
     // Obtener ventas detalladas
     $details = $reportsManager->getDetailedSales($dateFrom, $dateTo, $sellerId, $categoryId);
+    
+    // Filtrar por monto mínimo si se especifica
+    if ($minAmount !== null && $minAmount > 0) {
+        $details = array_filter($details, function($sale) use ($minAmount) {
+            return isset($sale['total_amount']) && floatval($sale['total_amount']) >= $minAmount;
+        });
+        $details = array_values($details);
+    }
     
     // Filtrar por stock mínimo si se especifica
     if ($minStock !== null && $minStock > 0) {
@@ -126,21 +135,23 @@ function generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId = nu
         ],
         'seller_id' => $sellerId,
         'category_id' => $categoryId,
-        'min_stock' => $minStock
+        'min_stock' => $minStock,
+        'min_amount' => $minAmount
     ];
 }
 
 function generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId, $minStock = null) {
     $bestSelling = $reportsManager->getBestSellingProducts($dateFrom, $dateTo, 50);
     
-    if ($categoryId) {
+    // Filtrar por categoría si se especifica
+    if ($categoryId && !empty($categoryId)) {
         $bestSelling = array_filter($bestSelling, function($product) use ($categoryId) {
-            return (isset($product['category_id']) && $product['category_id'] == $categoryId) ||
-                   (isset($product['category_name']) && !empty($product['category_name']));
+            return isset($product['category_id']) && $product['category_id'] == $categoryId;
         });
         $bestSelling = array_values($bestSelling);
     }
     
+    // Filtrar por stock mínimo si se especifica
     if ($minStock !== null && $minStock > 0) {
         $bestSelling = array_filter($bestSelling, function($product) use ($minStock) {
             return isset($product['stock']) && $product['stock'] >= $minStock;
@@ -169,20 +180,40 @@ function generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId
     ];
 }
 
-function generateInventoryReport($reportsManager, $categoryId, $minStock = null) {
+function generateInventoryReport($reportsManager, $categoryId, $minStock = null, $stockStatus = null) {
     $inventory = $reportsManager->getInventoryReport();
     
-    if ($categoryId) {
+    // Filtrar por categoría si se especifica
+    if ($categoryId && !empty($categoryId)) {
         $inventory = array_filter($inventory, function($product) use ($categoryId) {
-            return (isset($product['category_id']) && $product['category_id'] == $categoryId) ||
-                   (isset($product['category_name']) && !empty($product['category_name']));
+            return isset($product['category_id']) && $product['category_id'] == $categoryId;
         });
         $inventory = array_values($inventory);
     }
     
+    // Filtrar por stock mínimo si se especifica
     if ($minStock !== null && $minStock > 0) {
         $inventory = array_filter($inventory, function($product) use ($minStock) {
             return isset($product['stock']) && $product['stock'] >= $minStock;
+        });
+        $inventory = array_values($inventory);
+    }
+    
+    // Filtrar por estado de stock si se especifica
+    if ($stockStatus && !empty($stockStatus)) {
+        $inventory = array_filter($inventory, function($product) use ($stockStatus) {
+            switch($stockStatus) {
+                case 'low_stock':
+                    return isset($product['stock']) && $product['stock'] <= 10;
+                case 'critical_stock':
+                    return isset($product['stock']) && $product['stock'] <= 5;
+                case 'out_of_stock':
+                    return isset($product['stock']) && $product['stock'] <= 0;
+                case 'good_stock':
+                    return isset($product['stock']) && $product['stock'] > 20;
+                default:
+                    return true;
+            }
         });
         $inventory = array_values($inventory);
     }
@@ -191,7 +222,7 @@ function generateInventoryReport($reportsManager, $categoryId, $minStock = null)
     $totalStockValue = array_sum(array_column($inventory, 'stock_value'));
     $totalStock = array_sum(array_column($inventory, 'stock'));
     $lowStockCount = count(array_filter($inventory, function($product) {
-        return $product['stock'] <= 10;
+        return isset($product['stock']) && $product['stock'] <= 10;
     }));
     
     return [
@@ -204,7 +235,8 @@ function generateInventoryReport($reportsManager, $categoryId, $minStock = null)
         'inventory' => $inventory,
         'type' => 'inventory',
         'category_id' => $categoryId,
-        'min_stock' => $minStock
+        'min_stock' => $minStock,
+        'stock_status' => $stockStatus
     ];
 }
 
@@ -268,9 +300,17 @@ function generateQuickReportData($reportsManager, $quickReport, $dateFrom, $date
     }
 }
 
-function generateCategoriesReport($reportsManager, $dateFrom, $dateTo) {
+function generateCategoriesReport($reportsManager, $dateFrom, $dateTo, $categoryId = null) {
     // Obtener estadísticas por categorías
     $categories = $reportsManager->getCategoriesStats($dateFrom, $dateTo);
+    
+    // Filtrar por categoría específica si se especifica
+    if ($categoryId && !empty($categoryId)) {
+        $categories = array_filter($categories, function($category) use ($categoryId) {
+            return isset($category['id']) && $category['id'] == $categoryId;
+        });
+        $categories = array_values($categories);
+    }
     
     // Calcular resumen
     $totalCategories = count($categories);
@@ -288,7 +328,8 @@ function generateCategoriesReport($reportsManager, $dateFrom, $dateTo) {
         'period' => [
             'from' => $dateFrom,
             'to' => $dateTo
-        ]
+        ],
+        'category_id' => $categoryId
     ];
 }
 

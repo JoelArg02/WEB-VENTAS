@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Filtros de Reportes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6">Prueba de Filtros de Reportes</h1>
+        
+        <!-- Formulario de prueba -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <form id="testForm" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Tipo de Reporte</label>
+                        <select id="reportType" class="w-full border rounded p-2">
+                            <option value="sales">Ventas</option>
+                            <option value="products">Productos</option>
+                            <option value="inventory">Inventario</option>
+                            <option value="categories">Categorías</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Categoría</label>
+                        <select id="categoryId" class="w-full border rounded p-2">
+                            <option value="">Todas</option>
+                            <option value="1">Categoría 1</option>
+                            <option value="2">Categoría 2</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Stock Mínimo</label>
+                        <input type="number" id="minStock" class="w-full border rounded p-2" placeholder="10">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Estado Stock</label>
+                        <select id="stockStatus" class="w-full border rounded p-2">
+                            <option value="">Todos</option>
+                            <option value="critical_stock">Crítico</option>
+                            <option value="low_stock">Bajo</option>
+                            <option value="good_stock">Bueno</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="button" onclick="testFilters()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Probar Filtros
+                </button>
+            </form>
+        </div>
+        
+        <!-- Resultado -->
+        <div id="result" class="bg-white p-6 rounded-lg shadow-md">
+            <h3 class="text-lg font-medium mb-4">Resultado de la Prueba</h3>
+            <pre id="output" class="bg-gray-100 p-4 rounded text-sm"></pre>
+        </div>
+    </div>
+
+    <script>
+        async function testFilters() {
+            const reportType = document.getElementById('reportType').value;
+            const categoryId = document.getElementById('categoryId').value;
+            const minStock = document.getElementById('minStock').value;
+            const stockStatus = document.getElementById('stockStatus').value;
+            
+            const requestBody = {
+                type: reportType,
+                date_from: '2025-01-01',
+                date_to: '2025-07-29',
+                category_id: categoryId,
+                stock_status: stockStatus
+            };
+            
+            if (minStock) {
+                requestBody.min_stock = parseInt(minStock);
+            }
+            
+            document.getElementById('output').textContent = 'Enviando solicitud...\n' + JSON.stringify(requestBody, null, 2);
+            
+            try {
+                const response = await fetch('api/reports.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                const data = await response.json();
+                
+                document.getElementById('output').textContent = 
+                    'REQUEST:\n' + JSON.stringify(requestBody, null, 2) + 
+                    '\n\nRESPONSE:\n' + JSON.stringify(data, null, 2);
+                    
+            } catch (error) {
+                document.getElementById('output').textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
