@@ -76,12 +76,6 @@ include '../includes/header.php';
                 Entrar
             </button>
         </form>
-        
-        <div class="mt-6 text-center">
-            <p class="text-sm text-gray-600">
-                Usuario de prueba: admin@test.com | Contraseña: admin123
-            </p>
-        </div>
     </div>
 
 <?php include '../includes/footer.php'; ?>

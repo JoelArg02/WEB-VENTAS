@@ -42,7 +42,7 @@ include 'includes/header.php';
                     >
                         <img src="./assets/logo.png" alt="Logo" class="w-full h-full object-cover">
                     </div>
-                    <h1 class="text-xl font-bold text-gray-800">Dashboard - <?php echo ucfirst($userData['role']); ?></h1>
+                    <h1 class="text-xl font-bold text-gray-800">Acutando como - <?php echo ucfirst($userData['role']); ?></h1>
                 </div>
                 <div class="relative">
                     <button onclick="toggleUserDropdown()" class="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-800">
@@ -381,7 +381,6 @@ include 'includes/header.php';
                 `;
             }
 
-            // Total de usuarios
             if (data.total_users !== undefined) {
                 html += `
                     <div class="bg-white rounded-lg shadow p-6">
@@ -461,7 +460,6 @@ include 'includes/header.php';
                 `;
 
                 data.recent_sales.slice(0, 5).forEach(sale => {
-                    // Crear información de productos para mostrar
                     let productsInfo = 'Sin productos';
                     let totalItems = 0;
 

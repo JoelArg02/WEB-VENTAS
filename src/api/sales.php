@@ -13,15 +13,14 @@ try {
     require_once '../auth/session.php';
     require_once '../auth/permissions.php';
     require_once '../models/SalesManager.php';
-    
+
     // Limpiar cualquier salida capturada
     if (ob_get_length()) ob_end_clean();
-    
+
     // Volver a activar el logging de errores pero sin mostrarlos
     error_reporting(E_ALL);
     ini_set('display_errors', 0);
     ini_set('log_errors', 1);
-    
 } catch (Exception $e) {
     // Limpiar buffer si hay error
     if (ob_get_length()) ob_end_clean();
@@ -45,10 +44,10 @@ $userData = SessionManager::getUserData();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     PermissionManager::requirePermission($userData['role'], 'sales');
-    
+
     try {
         $salesManager = new SalesManager();
-        
+
         if (isset($_GET['stats'])) {
             $stats = $salesManager->getSalesStats();
             echo json_encode([
@@ -75,7 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'message' => $e->getMessage()
         ]);
     }
-    
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // Verificar permisos
@@ -86,12 +84,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ]);
             exit;
         }
-        
+
         $rawInput = file_get_contents('php://input');
         error_log('Sales API - Raw input received: ' . $rawInput);
-        
+
         $input = json_decode($rawInput, true);
-        
+
         if (json_last_error() !== JSON_ERROR_NONE) {
             echo json_encode([
                 'success' => false,
@@ -99,9 +97,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ]);
             exit;
         }
-        
+
         error_log('Sales API - Decoded input: ' . json_encode($input));
-        
+
         // Validar campos requeridos
         $requiredFields = ['client', 'products', 'subtotal', 'iva_amount', 'total_amount', 'money_received', 'change_amount'];
         foreach ($requiredFields as $field) {
@@ -113,19 +111,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 exit;
             }
         }
-        
+
         $input['user_id'] = $userData['id'];
-        
+
         error_log('Sales API - Input with user_id: ' . json_encode($input));
-        
+
         $salesManager = new SalesManager();
         $result = $salesManager->createSale($input);
-        
+
         $response = [
             'success' => $result,
             'message' => $result ? 'Venta registrada exitosamente' : 'Error al registrar venta'
         ];
-        
+
         error_log('Sales API - Response: ' . json_encode($response));
         echo json_encode($response);
     } catch (Exception $e) {
@@ -136,5 +134,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         error_log('Sales API - Error response: ' . json_encode($errorResponse));
         echo json_encode($errorResponse);
     }
+} elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    $saleId = $input['id'] ?? $_GET['id'] ?? null;
+
+    if (!$saleId) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Falta id de venta'
+        ]);
+        exit;
+    }
+
+    if (!PermissionManager::hasPermission($userData['role'], 'delete_sale')) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'No tienes permisos para eliminar ventas'
+        ]);
+        exit;
+    }
+
+    try {
+        $salesManager = new SalesManager();
+
+        $deleteResult = $salesManager->deleteSale($saleId);
+
+        // Si el método retorna true, formateamos una respuesta clara
+        if (is_array($deleteResult)) {
+            // Si en algún momento decides que deleteSale devuelva un array con más detalles
+            echo json_encode($deleteResult);
+        } else {
+            echo json_encode([
+                'success' => $deleteResult,
+                'message' => $deleteResult
+                    ? 'Venta eliminada y stock restaurado'
+                    : 'No se pudo eliminar la venta'
+            ]);
+        }
+    } catch (Exception $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error al eliminar venta: ' . $e->getMessage()
+        ]);
+    }
 }
-?>

@@ -13,7 +13,6 @@ header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
-        // Verificar conexión a la base de datos
         $database = new Database();
         if (!$database->testConnection()) {
             throw new Exception('No se pudo conectar a la base de datos. Verifica que el servidor MySQL esté ejecutándose.');
@@ -21,7 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
         $dashboardData = [];
         
-        // Estadísticas de ventas (si tiene permiso)
         if (PermissionManager::hasPermission($userData['role'], 'sales')) {
             try {
                 $salesManager = new SalesManager();
@@ -62,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         }
         
-        // Ventas recientes (si tiene permiso)
+        
         if (PermissionManager::hasPermission($userData['role'], 'sales')) {
             try {
                 $dashboardData['recent_sales'] = $salesManager->getAllSales(5);

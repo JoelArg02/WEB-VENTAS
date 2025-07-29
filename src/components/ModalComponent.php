@@ -103,10 +103,10 @@ class ModalComponent
                                     </div>
                                     
                                     <div>
-                                        <label class="block text-sm font-semibold text-gray-700 mb-3">SKU *</label>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-3">Lector de barra </label>
                                         <input type="text" name="sku" 
                                                class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
-                                               placeholder="Ingrese el SKU del producto" required>
+                                               placeholder="Ingrese el lector de barra del producto" required>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-3">Stock Inicial *</label>
@@ -132,7 +132,7 @@ class ModalComponent
                                         <label class="block text-sm font-semibold text-gray-700 mb-3">Imagen del Producto</label>
                                         <div class="flex items-center space-x-6">
                                             <div class="flex-shrink-0">
-                                                <img id="imagePreview" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik00NS4wMDAzIDQ1SDc1LjAwMDNWNzVINDUuMDAwM1Y0NVoiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPHA+CjwvcGF0aD4KPC9zdmc+" 
+                                                <img id="imagePreview" src="https://placehold.co/120x120?text=Imagen" 
                                                      class="h-28 w-28 rounded-lg border-2 border-gray-300 object-cover" alt="Vista previa">
                                             </div>
                                             <div class="flex-1">
@@ -179,6 +179,29 @@ class ModalComponent
                     showError('Error al cargar las categorías. Intente nuevamente.');
                 }
             }
+
+            async function deleteSale(saleId) {
+                if (!confirm('¿Estás seguro de eliminar esta venta?')) return;
+
+                try {
+                    const result = await apiRequest('/api/sales.php', {
+                        method: 'DELETE',
+                        body: JSON.stringify({ id: saleId })
+                    });
+
+                    console.log(`Delete sale response: ${JSON.stringify(result)}`);
+                    if (result.success) {
+                        showMessage(result.message || 'Venta eliminada');
+                        loadSalesData();
+                    } else {
+                        showError(result.message || 'Error al eliminar la venta');
+                    }
+                } catch (error) {
+                    showError('Error de conexión al eliminar venta');
+                    console.error('Delete sale error:', error);
+                }
+            }
+
 
             // Modal para crear venta
             function openCreateSaleModal() {
@@ -550,10 +573,10 @@ class ModalComponent
                                                placeholder="0.00" required>
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-semibold text-gray-700 mb-3">SKU *</label>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-3">Lector de barra</label>
                                         <input type="text" name="sku" value="${product.sku || ''}" 
                                                class="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
-                                               placeholder="Ingrese el SKU del producto" required>
+                                               placeholder="Ingrese el lector de barra del producto" required>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-semibold text-gray-700 mb-3">Stock *</label>
@@ -1048,7 +1071,7 @@ class ModalComponent
                     if (result.success) {
                         const message = moneyReceived > 0 ?
                             `Venta registrada exitosamente. Vuelto: ${formatCurrency(change)}` :
-                            'Venta a crédito registrada exitosamente';
+                            'Venta registrada exitosamente';
                         showMessage(message, 'success');
                         closeModal();
                         if (typeof loadSalesData === 'function') loadSalesData();

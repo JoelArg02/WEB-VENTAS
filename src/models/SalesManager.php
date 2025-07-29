@@ -1,70 +1,76 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 
-class SalesManager {
+class SalesManager
+{
     private $conn;
-    
-    public function __construct() {
+
+    public function __construct()
+    {
         $database = new Database();
         $this->conn = $database->getConnection();
     }
-    
-    public function getAllSales($limit = null) {
+
+    public function getAllSales($limit = null)
+    {
         try {
             $query = "SELECT s.*, u.name as user_name 
-                     FROM sales s 
-                     LEFT JOIN users u ON s.user_id = u.id 
-                     ORDER BY s.id DESC";
-            
+                  FROM sales s 
+                  LEFT JOIN users u ON s.user_id = u.id 
+                  WHERE DATE(s.sale_date) = CURDATE()
+                  ORDER BY s.id DESC";
+
             if ($limit) {
                 $query .= " LIMIT " . intval($limit);
             }
-            
+
             $stmt = $this->conn->prepare($query);
             $stmt->execute();
             $sales = $stmt->fetchAll();
-            
-            // Para cada venta, obtener los items
+
             foreach ($sales as &$sale) {
                 $sale['items'] = $this->getSaleItems($sale['id']);
             }
-            
+
             return $sales;
         } catch (Exception $e) {
             throw new Exception('Error al obtener ventas: ' . $e->getMessage());
         }
     }
-    
-    public function getSalesToday() {
+
+
+    public function getSalesToday()
+    {
         try {
             $query = "SELECT s.*, u.name as user_name 
                      FROM sales s 
                      LEFT JOIN users u ON s.user_id = u.id 
                      WHERE DATE(s.sale_date) = CURDATE() 
                      ORDER BY s.sale_date DESC";
-            
+
             $stmt = $this->conn->prepare($query);
             $stmt->execute();
             $sales = $stmt->fetchAll();
-            
+
             // Para cada venta, obtener los items
             foreach ($sales as &$sale) {
                 $sale['items'] = $this->getSaleItems($sale['id']);
             }
-            
+
             return $sales;
         } catch (Exception $e) {
             throw new Exception('Error al obtener ventas de hoy: ' . $e->getMessage());
         }
     }
-    
-    public function getSaleItems($saleId) {
+
+    public function getSaleItems($saleId)
+    {
         try {
             $query = "SELECT si.*, p.name as product_name 
                      FROM sale_items si 
                      LEFT JOIN products p ON si.product_id = p.id 
                      WHERE si.sale_id = :sale_id";
-            
+
             $stmt = $this->conn->prepare($query);
             $stmt->bindParam(':sale_id', $saleId);
             $stmt->execute();
@@ -73,13 +79,14 @@ class SalesManager {
             throw new Exception('Error al obtener items de venta: ' . $e->getMessage());
         }
     }
-    
-    public function getTotalSalesToday() {
+
+    public function getTotalSalesToday()
+    {
         try {
             $query = "SELECT SUM(total_amount) as total 
                      FROM sales 
                      WHERE DATE(sale_date) = CURDATE() AND status = 1";
-            
+
             $stmt = $this->conn->prepare($query);
             $stmt->execute();
             $result = $stmt->fetch();
@@ -88,16 +95,17 @@ class SalesManager {
             throw new Exception('Error al obtener total de ventas de hoy: ' . $e->getMessage());
         }
     }
-    
-    public function createSale($data) {
+
+    public function createSale($data)
+    {
         try {
             error_log('SalesManager::createSale - Input data: ' . json_encode($data));
-            
+
             // Verificar que hay productos
             if (!isset($data['products']) || !is_array($data['products']) || count($data['products']) === 0) {
                 throw new Exception('No se especificaron productos para la venta');
             }
-            
+
             // Validar estructura de productos
             foreach ($data['products'] as $index => $product) {
                 if (!isset($product['product_id']) || empty($product['product_id'])) {
@@ -110,7 +118,7 @@ class SalesManager {
                     throw new Exception("El producto en la posición $index no tiene precio válido");
                 }
             }
-            
+
             // Verificar stock disponible para todos los productos
             foreach ($data['products'] as $product) {
                 $stockQuery = "SELECT id, stock, name FROM products WHERE id = :product_id AND status = 1";
@@ -118,25 +126,25 @@ class SalesManager {
                 $stockStmt->bindParam(':product_id', $product['product_id'], PDO::PARAM_INT);
                 $stockStmt->execute();
                 $productInfo = $stockStmt->fetch();
-                
+
                 error_log('SalesManager::createSale - Product lookup for ID ' . $product['product_id'] . ': ' . json_encode($productInfo));
-                
+
                 if (!$productInfo) {
                     throw new Exception('El producto con ID ' . $product['product_id'] . ' no existe o está inactivo');
                 }
-                
+
                 if ($productInfo['stock'] < $product['quantity']) {
                     throw new Exception('Stock insuficiente para el producto "' . $productInfo['name'] . '". Stock disponible: ' . $productInfo['stock'] . ', solicitado: ' . $product['quantity']);
                 }
             }
-            
+
             // Iniciar transacción
             $this->conn->beginTransaction();
-            
+
             // Crear la venta principal (SIN product_id, quantity, unit_price)
             $query = "INSERT INTO sales (user_id, client, subtotal, iva_amount, total_amount, money_received, change_amount, sale_date, status) 
                      VALUES (:user_id, :client, :subtotal, :iva_amount, :total_amount, :money_received, :change_amount, NOW(), :status)";
-            
+
             $stmt = $this->conn->prepare($query);
             $stmt->bindValue(':user_id', $data['user_id'], PDO::PARAM_INT);
             $stmt->bindValue(':client', $data['client'], PDO::PARAM_STR);
@@ -147,31 +155,31 @@ class SalesManager {
             $stmt->bindValue(':change_amount', $data['change_amount'], PDO::PARAM_STR);
             $status = isset($data['status']) ? $data['status'] : 1;
             $stmt->bindValue(':status', $status, PDO::PARAM_INT);
-            
+
             error_log('SalesManager::createSale - About to execute INSERT query for sales table');
             $result = $stmt->execute();
-            
+
             if (!$result) {
                 $errorInfo = $stmt->errorInfo();
                 throw new Exception('Error al insertar venta: ' . $errorInfo[2]);
             }
-            
+
             error_log('SalesManager::createSale - Sales INSERT successful');
-            
+
             $saleId = $this->conn->lastInsertId();
             error_log('SalesManager::createSale - Sale ID: ' . $saleId);
-            
+
             $itemQuery = "INSERT INTO sale_items (sale_id, product_id, quantity, unit_price) 
                          VALUES (:sale_id, :product_id, :quantity, :unit_price)";
             $itemStmt = $this->conn->prepare($itemQuery);
-            
+
             foreach ($data['products'] as $product) {
                 error_log('SalesManager::createSale - Processing product: ' . json_encode($product));
-                
+
                 $productId = (int)$product['product_id'];
                 $quantity = (int)$product['quantity'];
                 $unitPrice = isset($product['price']) ? (float)$product['price'] : (float)$product['unit_price'];
-                
+
                 if ($productId <= 0) {
                     throw new Exception('Product ID inválido: ' . $product['product_id']);
                 }
@@ -181,34 +189,34 @@ class SalesManager {
                 if ($unitPrice <= 0) {
                     throw new Exception('Precio inválido: ' . $unitPrice);
                 }
-                
-                
+
+
                 $itemStmt->bindValue(':sale_id', $saleId, PDO::PARAM_INT);
                 $itemStmt->bindValue(':product_id', $productId, PDO::PARAM_INT);
                 $itemStmt->bindValue(':quantity', $quantity, PDO::PARAM_INT);
                 $itemStmt->bindValue(':unit_price', $unitPrice, PDO::PARAM_STR);
-                
+
                 $itemResult = $itemStmt->execute();
-                
+
                 if (!$itemResult) {
                     $errorInfo = $itemStmt->errorInfo();
                     throw new Exception('Error al insertar item de venta: ' . $errorInfo[2]);
                 }
-                
+
                 error_log('SalesManager::createSale - Sale item inserted successfully');
-                
+
                 $updateStockQuery = "UPDATE products SET stock = stock - ? WHERE id = ?";
                 $updateStmt = $this->conn->prepare($updateStockQuery);
                 $updateResult = $updateStmt->execute([$quantity, $productId]);
-                
+
                 if (!$updateResult) {
                     $errorInfo = $updateStmt->errorInfo();
                     throw new Exception('Error al actualizar stock: ' . $errorInfo[2]);
                 }
-                
+
                 error_log('SalesManager::createSale - Stock updated for product ' . $productId);
             }
-            
+
             $this->conn->commit();
             error_log('SalesManager::createSale - Transaction committed successfully');
             return true;
@@ -218,18 +226,19 @@ class SalesManager {
             throw new Exception('Error al crear venta: ' . $e->getMessage());
         }
     }
-    
-    public function getSalesStats() {
+
+    public function getSalesStats()
+    {
         try {
             $stats = [];
-            
+
             $todayQuery = "SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as total 
                           FROM sales
                           WHERE DATE(sale_date) = CURDATE()";
             $stmt = $this->conn->prepare($todayQuery);
             $stmt->execute();
             $stats['today'] = $stmt->fetch();
-            
+
             $monthQuery = "SELECT COUNT(*) as count, COALESCE(SUM(total_amount), 0) as total 
                           FROM sales
                           WHERE YEAR(sale_date) = YEAR(CURDATE()) 
@@ -237,11 +246,56 @@ class SalesManager {
             $stmt = $this->conn->prepare($monthQuery);
             $stmt->execute();
             $stats['month'] = $stmt->fetch();
-            
+
             return $stats;
         } catch (Exception $e) {
             throw new Exception('Error al obtener estadísticas: ' . $e->getMessage());
         }
     }
+
+    public function deleteSale($saleId)
+    {
+        try {
+            $this->conn->beginTransaction();
+
+            // Recuperar los productos de la venta para reponer stock
+            $stmt = $this->conn->prepare("
+                SELECT si.product_id, si.quantity, p.name 
+                FROM sale_items si
+                INNER JOIN products p ON si.product_id = p.id
+                WHERE si.sale_id = :sale_id
+            ");
+            $stmt->execute([':sale_id' => $saleId]);
+            $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $updateStock = $this->conn->prepare(
+                "UPDATE products SET stock = stock + :qty WHERE id = :product_id"
+            );
+            foreach ($items as $item) {
+                $updateStock->execute([
+                    ':qty' => $item['quantity'],
+                    ':product_id' => $item['product_id'],
+                ]);
+            }
+
+            // Eliminar los items de la venta primero
+            $stmt = $this->conn->prepare("DELETE FROM sale_items WHERE sale_id = :sale_id");
+            $stmt->execute([':sale_id' => $saleId]);
+
+            // Ahora sí elimina la venta
+            $stmt = $this->conn->prepare("DELETE FROM sales WHERE id = :sale_id");
+            $stmt->execute([':sale_id' => $saleId]);
+
+            if ($stmt->rowCount() === 0) {
+                $this->conn->rollBack();
+                throw new Exception('No se encontró la venta para eliminar');
+            }
+
+            $this->conn->commit();
+            return true;
+        } catch (Exception $e) {
+            $this->conn->rollBack();
+            throw new Exception('Error al eliminar venta: ' . $e->getMessage());
+        }
+    }
 }
-?>

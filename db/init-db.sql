@@ -1,3 +1,5 @@
+SET GLOBAL time_zone = '-05:00';
+
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,

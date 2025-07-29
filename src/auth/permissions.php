@@ -21,7 +21,8 @@ class PermissionManager {
                 'delete_category' => true,
                 'create_sale' => true,
                 'view_reports' => true,
-                'export_reports' => true
+                'export_reports' => true,
+                'delete_sale' => true
             ],
             'vendedor' => [
                 'dashboard' => true,
@@ -94,7 +95,7 @@ class PermissionManager {
         $tabs = [];
         
         if ($permissions['dashboard']) {
-            $tabs[] = ['id' => 'dashboard', 'name' => 'Dashboard'];
+            $tabs[] = ['id' => 'dashboard', 'name' => 'Estadisticas'];
         }
         
         if ($permissions['users']) {
