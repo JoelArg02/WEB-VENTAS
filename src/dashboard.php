@@ -42,7 +42,7 @@ include 'includes/header.php';
                     >
                         <img src="./assets/logo.png" alt="Logo" class="w-full h-full object-cover">
                     </div>
-                    <h1 class="text-xl font-bold text-gray-800">Acutando como - <?php echo ucfirst($userData['role']); ?></h1>
+                    <h1 class="text-xl font-bold text-gray-800">Actuando como - <?php echo ucfirst($userData['role']); ?></h1>
                 </div>
                 <div class="relative">
                     <button onclick="toggleUserDropdown()" class="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-800">
