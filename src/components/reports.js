@@ -100,6 +100,12 @@ function clearFilters() {
     const sellerSelect = document.getElementById('sellerId');
     if (sellerSelect) sellerSelect.value = '';
 
+    const minStockInput = document.getElementById('minStock');
+    if (minStockInput) minStockInput.value = '';
+
+    const stockStatusSelect = document.getElementById('stockStatus');
+    if (stockStatusSelect) stockStatusSelect.value = '';
+
     // Limpiar contenido del reporte
     document.getElementById('reportContent').innerHTML = getEmptyReportMessage();
     currentReportData = null;
@@ -112,6 +118,8 @@ async function generateReport() {
     const dateTo = document.getElementById('dateTo').value;
     const categoryId = document.getElementById('categoryId')?.value || '';
     const sellerId = document.getElementById('sellerId')?.value || '';
+    const minStock = document.getElementById('minStock')?.value || '';
+    const stockStatus = document.getElementById('stockStatus')?.value || '';
 
     if (!dateFrom || !dateTo) {
         if (typeof showMessage === 'function') {
@@ -123,25 +131,38 @@ async function generateReport() {
     showReportLoading();
 
     try {
+        const requestBody = {
+            type: reportType,
+            date_from: dateFrom,
+            date_to: dateTo,
+            category_id: categoryId,
+            seller_id: sellerId
+        };
+
+        // Agregar parámetros específicos según el tipo de reporte
+        if (reportType === 'products' || reportType === 'inventory') {
+            if (minStock) {
+                requestBody.min_stock = parseInt(minStock);
+            }
+        }
+        
+        if (reportType === 'inventory' && stockStatus) {
+            requestBody.stock_status = stockStatus;
+        }
+
         const response = await fetch('../api/reports.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                type: reportType,
-                date_from: dateFrom,
-                date_to: dateTo,
-                category_id: categoryId,
-                seller_id: sellerId
-            })
+            body: JSON.stringify(requestBody)
         });
 
         const data = await response.json();
 
         if (data.success) {
             currentReportData = data.data;
-            renderReport(reportType, data.data, { dateFrom, dateTo, categoryId, sellerId });
+            renderReport(reportType, data.data, { dateFrom, dateTo, categoryId, sellerId, minStock, stockStatus });
         } else {
             showReportError(data.message || 'Error al generar el reporte');
         }
@@ -378,7 +399,7 @@ async function generateQuickReportDirectly(quickType, reportType, dateFrom, date
         if (quickType === 'low_stock') {
             body.quick_report = 'low_stock';
         } else if (quickType === 'expiring') {
-            body.quick_report = 'expiring';
+            body.quick_report = 'expiring_products';
         }
 
         const response = await fetch('../api/reports.php', {
@@ -388,6 +409,10 @@ async function generateQuickReportDirectly(quickType, reportType, dateFrom, date
             },
             body: JSON.stringify(body)
         });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
         const data = await response.json();
 
@@ -404,7 +429,7 @@ async function generateQuickReportDirectly(quickType, reportType, dateFrom, date
             showMessage('Error de conexión al generar el reporte rápido', 'error');
         }
 
-        showReportError('Error de conexión al generar el reporte rápido');
+        showReportError('Error de conexión al generar el reporte rápido. ' + error.message);
     }
 }
 
@@ -553,19 +578,37 @@ function generateSalesPDF(doc, data, startY) {
         doc.text('Ventas Detalladas', 20, y);
         y += 10;
 
-        // Headers (sin cliente)
+        // Headers (sin cliente) con bordes
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
+        
+        // Dibujar rectángulo para headers
+        doc.setFillColor(34, 197, 94); // Color verde
+        doc.setTextColor(255, 255, 255); // Texto blanco
+        doc.rect(15, y - 5, 185, 12, 'F');
+        doc.rect(15, y - 5, 185, 12, 'S');
+        
         doc.text('ID', 20, y);
         doc.text('Vendedor', 50, y);
         doc.text('Total', 100, y);
         doc.text('Productos', 130, y);
         doc.text('Fecha', 170, y);
         doc.setFont(undefined, 'normal');
+        doc.setTextColor(0, 0, 0); // Volver a texto negro
         y += 8;
 
-        // Datos (sin cliente)
-        data.details.slice(0, 25).forEach(sale => {
+        // Datos (sin cliente) con bordes alternados
+        data.details.slice(0, 25).forEach((sale, index) => {
+            // Dibujar fila con borde alternado
+            if (index % 2 === 0) {
+                doc.setFillColor(240, 253, 244); // Color verde claro para filas pares
+                doc.rect(15, y - 3, 185, 8, 'F');
+            }
+            
+            // Borde de la fila
+            doc.setDrawColor(200, 200, 200);
+            doc.rect(15, y - 3, 185, 8, 'S');
+            
             doc.text(String(sale.id), 20, y);
             doc.text(sale.seller_name || 'N/A', 50, y);
             doc.text(formatCurrency(sale.total_amount), 100, y);
@@ -609,9 +652,16 @@ function generateProductsPDF(doc, data, startY) {
         doc.text('Productos Más Vendidos', 20, y);
         y += 15;
 
-        // Headers
+        // Headers con bordes
         doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
+        
+        // Dibujar rectángulo para headers
+        doc.setFillColor(52, 58, 64); // Color gris oscuro
+        doc.setTextColor(255, 255, 255); // Texto blanco
+        doc.rect(15, y - 5, 185, 12, 'F');
+        doc.rect(15, y - 5, 185, 12, 'S');
+        
         doc.text('Imagen', 20, y);
         doc.text('Producto', 45, y);
         doc.text('Categoría', 100, y);
@@ -619,6 +669,7 @@ function generateProductsPDF(doc, data, startY) {
         doc.text('Vendidos', 165, y);
         doc.text('Ingresos', 185, y);
         doc.setFont(undefined, 'normal');
+        doc.setTextColor(0, 0, 0); // Volver a texto negro
         y += 10;
 
         // Datos con imágenes
@@ -640,10 +691,23 @@ function generateProductsPDF(doc, data, startY) {
             results.forEach(({ imageData, product, index }) => {
                 const rowY = y + (index * 25);
 
+                // Dibujar fila con borde alternado
+                if (index % 2 === 0) {
+                    doc.setFillColor(248, 249, 250); // Color gris claro para filas pares
+                    doc.rect(15, rowY - 10, 185, 22, 'F');
+                }
+                
+                // Borde de la fila
+                doc.setDrawColor(200, 200, 200);
+                doc.rect(15, rowY - 10, 185, 22, 'S');
+
                 // Imagen
                 if (imageData) {
                     try {
                         doc.addImage(imageData, 'JPEG', 20, rowY - 8, 20, 20);
+                        // Borde para la imagen
+                        doc.setDrawColor(100, 100, 100);
+                        doc.rect(20, rowY - 8, 20, 20, 'S');
                     } catch (e) {
                         console.error('Error adding image to PDF:', e);
                     }
@@ -959,13 +1023,13 @@ function generateProductsExcel(workbook, data) {
     // Crear hoja principal con logo y formato mejorado
     const worksheet = XLSX.utils.aoa_to_sheet([]);
     
-    // Información de la empresa (header)
+    // Información de la empresa (header con espacio para logo)
     const companyInfo = [
-        ['SISTEMA DE VENTAS - REPORTE DE PRODUCTOS'],
+        ['', '', '', 'SISTEMA DE VENTAS - REPORTE DE PRODUCTOS'],
         [''],
-        ['Fecha de Generación:', new Date().toLocaleDateString('es-ES')],
-        ['Tipo de Reporte:', 'Productos Más Vendidos'],
-        ['Período:', data.period ? `${formatDate(data.period.from)} - ${formatDate(data.period.to)}` : 'Todos los registros'],
+        ['', '', '', 'Fecha de Generación:', new Date().toLocaleDateString('es-ES')],
+        ['', '', '', 'Tipo de Reporte:', 'Productos Más Vendidos'],
+        ['', '', '', 'Período:', data.period ? `${formatDate(data.period.from)} - ${formatDate(data.period.to)}` : 'Todos los registros'],
         [''],
         ['RESUMEN EJECUTIVO'],
         ['Total de Productos:', data.summary?.total_products || 0],
@@ -979,6 +1043,19 @@ function generateProductsExcel(workbook, data) {
     companyInfo.forEach((row, index) => {
         XLSX.utils.sheet_add_aoa(worksheet, [row], {origin: `A${index + 1}`});
     });
+    
+    // Intentar agregar logo de la empresa
+    try {
+        const logoPath = '../assets/logo.png';
+        addLogoToExcelSheet(worksheet, logoPath);
+    } catch (error) {
+        console.log('No se pudo cargar el logo para Excel:', error);
+    }
+    
+    // Formato para título principal con merge
+    const titleRange = XLSX.utils.encode_range({s: {c: 3, r: 0}, e: {c: 7, r: 0}});
+    worksheet['!merges'] = worksheet['!merges'] || [];
+    worksheet['!merges'].push(XLSX.utils.decode_range(titleRange));
     
     // Headers de la tabla de productos (fila 13)
     const headers = [
@@ -1266,4 +1343,25 @@ function loadImageForPDF(imageSrc) {
 
         img.src = processedSrc;
     });
+}
+
+// Función auxiliar para agregar logo al Excel
+function addLogoToExcelSheet(worksheet, logoPath) {
+    // Por ahora solo agregamos un placeholder para el logo
+    // En una implementación completa, se podría usar una librería que soporte imágenes en Excel
+    const logoCell = 'A1';
+    if (worksheet[logoCell]) {
+        worksheet[logoCell].v = 'LOGO';
+        worksheet[logoCell].s = {
+            font: { bold: true, sz: 14, color: { rgb: "2563EB" } },
+            alignment: { horizontal: "center", vertical: "center" },
+            fill: { fgColor: { rgb: "E3F2FD" } },
+            border: {
+                top: { style: "thin", color: { rgb: "2563EB" } },
+                bottom: { style: "thin", color: { rgb: "2563EB" } },
+                left: { style: "thin", color: { rgb: "2563EB" } },
+                right: { style: "thin", color: { rgb: "2563EB" } }
+            }
+        };
+    }
 }
