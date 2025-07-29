@@ -56,6 +56,7 @@ function handleReportGeneration($reportsManager) {
     $dateFrom = $input['dateFrom'] ?? null;
     $dateTo = $input['dateTo'] ?? null;
     $categoryId = $input['categoryId'] ?? null;
+    $sellerId = $input['seller_id'] ?? null;
     $quickReport = $input['quickReport'] ?? null;
     $stockStatus = $input['stockStatus'] ?? null;
     $expiring = $input['expiring'] ?? false;
@@ -84,29 +85,24 @@ function handleReportGeneration($reportsManager) {
 function generateReportData($reportsManager, $type, $dateFrom, $dateTo, $categoryId) {
     switch ($type) {
         case 'sales':
-            return generateSalesReport($reportsManager, $dateFrom, $dateTo);
-            
+            global $sellerId;
+            return generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId);
         case 'products':
             return generateProductsReport($reportsManager, $dateFrom, $dateTo, $categoryId);
-            
         case 'inventory':
             return generateInventoryReport($reportsManager, $categoryId);
-            
         case 'categories':
             return generateCategoriesReport($reportsManager, $dateFrom, $dateTo);
-            
         default:
             throw new Exception('Tipo de reporte no soportado');
     }
 }
 
-function generateSalesReport($reportsManager, $dateFrom, $dateTo) {
+function generateSalesReport($reportsManager, $dateFrom, $dateTo, $sellerId = null) {
     // Obtener resumen de ventas
-    $summary = $reportsManager->getBusinessSummary($dateFrom, $dateTo);
-    
+    $summary = $reportsManager->getBusinessSummary($dateFrom, $dateTo, $sellerId);
     // Obtener ventas detalladas
-    $details = $reportsManager->getDetailedSales($dateFrom, $dateTo);
-    
+    $details = $reportsManager->getDetailedSales($dateFrom, $dateTo, $sellerId);
     return [
         'summary' => $summary,
         'details' => $details,
@@ -114,7 +110,8 @@ function generateSalesReport($reportsManager, $dateFrom, $dateTo) {
         'period' => [
             'from' => $dateFrom,
             'to' => $dateTo
-        ]
+        ],
+        'seller_id' => $sellerId
     ];
 }
 

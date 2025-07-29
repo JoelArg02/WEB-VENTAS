@@ -43,7 +43,7 @@ class ReportsManager {
     }
     
     // Obtener ventas detalladas con información completa
-    public function getDetailedSales($dateFrom = null, $dateTo = null) {
+    public function getDetailedSales($dateFrom = null, $dateTo = null, $sellerId = null) {
         try {
             $sql = "SELECT 
                         s.id,
@@ -64,20 +64,19 @@ class ReportsManager {
                     LEFT JOIN sale_items si ON s.id = si.sale_id
                     LEFT JOIN products p ON si.product_id = p.id
                     WHERE s.status = 1";
-            
             $params = [];
-            
             if ($dateFrom && $dateTo) {
                 $sql .= " AND DATE(s.sale_date) BETWEEN ? AND ?";
                 $params[] = $dateFrom;
                 $params[] = $dateTo;
             }
-            
+            if ($sellerId) {
+                $sql .= " AND s.user_id = ?";
+                $params[] = $sellerId;
+            }
             $sql .= " GROUP BY s.id ORDER BY s.sale_date DESC";
-            
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
-            
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
             error_log("Error in getDetailedSales: " . $e->getMessage());

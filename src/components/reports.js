@@ -111,6 +111,7 @@ async function generateReport() {
     const dateFrom = document.getElementById('dateFrom').value;
     const dateTo = document.getElementById('dateTo').value;
     const categoryId = document.getElementById('categoryId')?.value || '';
+    const sellerId = document.getElementById('sellerId')?.value || '';
 
     if (!dateFrom || !dateTo) {
         if (typeof showMessage === 'function') {
@@ -131,7 +132,8 @@ async function generateReport() {
                 type: reportType,
                 date_from: dateFrom,
                 date_to: dateTo,
-                category_id: categoryId
+                category_id: categoryId,
+                seller_id: sellerId
             })
         });
 
@@ -139,7 +141,7 @@ async function generateReport() {
 
         if (data.success) {
             currentReportData = data.data;
-            renderReport(reportType, data.data, { dateFrom, dateTo, categoryId });
+            renderReport(reportType, data.data, { dateFrom, dateTo, categoryId, sellerId });
         } else {
             showReportError(data.message || 'Error al generar el reporte');
         }
